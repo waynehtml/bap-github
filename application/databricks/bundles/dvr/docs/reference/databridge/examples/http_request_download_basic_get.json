@@ -1,0 +1,21 @@
+{
+  "id": "http_request_basic_auth",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "auth": {
+        "type": "basic",
+        "username": "{{ keyvault(scope=\"dis-secrets\", key=\"http-user\") }}",
+        "password": "{{ keyvault(scope=\"dis-secrets\", key=\"http-password\") }}"
+      }
+    },
+    "requests": [
+      {
+        "url": "https://api.vendor.example.com/report",
+        "response": {
+          "save_to": "raw/report.csv"
+        }
+      }
+    ]
+  }
+}

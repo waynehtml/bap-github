@@ -1,0 +1,51 @@
+{
+  "id": "http_request_api_key_query_export",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "api_key",
+        "location": "query",
+        "name": "api_key",
+        "value": "{{ keyvault(scope=\"dis-secrets\", key=\"http-api-key\") }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "download_export",
+        "method": "GET",
+        "path": "reports/export",
+        "headers": {
+          "Accept": "text/csv"
+        },
+        "params": {
+          "date": "{{ runtime.rundate }}",
+          "fields": [
+            "id",
+            "amount",
+            "currency"
+          ]
+        },
+        "retry": {
+          "max_attempts": 3,
+          "interval_sec": 15,
+          "status_codes": [
+            429,
+            502,
+            503,
+            504
+          ]
+        },
+        "response": {
+          "expected_status": 200,
+          "save_to": "raw/query-key-export.csv"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,325 @@
+# purpose: Runs the standard data pipeline that brings source data into Unity Catalog.
+# required: false
+variables:
+  # name: dataflow_job_name
+  # description: Uppercase full display name for the dataflow job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.domain and project.dataset using the
+  #     uppercase form <DOMAIN>-<DATASET>-DATAFLOW.
+  #   input_example: "FMD-CORRA-DATAFLOW"
+  dataflow_job_name:
+    default: "BAP-BSAS-DATAFLOW"
+  # name: dataflow_job_description
+  # description: Operator-facing description of the dataflow job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.dataset using <dataset> dataflow job.
+  #   input_example: "Runs the CORRA data pipeline."
+  dataflow_job_description:
+    default: "bsas dataflow job"
+
+resources:
+  jobs:
+    DATAFLOW:
+      # Display name that appears in the Databricks Jobs UI.
+      name: ${var.dataflow_job_name}
+      # Short description to help operators understand the pipeline's purpose.
+      description: ${var.dataflow_job_description}
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        application: ${var.project.dataset}
+        type: "dataflow"
+        criticality: "low"
+
+      permissions: ${var.job_permissions}
+
+      run_as:
+        # Service principal used to run the job in each deployed environment.
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        # Queue overlapping triggers instead of rejecting them when capacity is busy.
+        enabled: true
+      # Limit how many runs of this job may execute at the same time.
+      max_concurrent_runs: 10
+
+      # Job-level parameters are exposed in the Jobs UI and can be overridden per run.
+      parameters:
+        # Business date or processing date supplied at runtime.
+        - name: rundate
+          default: ""
+        # Per-run debug override for notebook logging/behavior.
+        - name: debug
+          default: ${var.debug}
+        # Optional JSON object string for curation mode and project run parameters.
+        - name: args
+          default: ""
+        # Stage toggles let operators skip parts of the pipeline in a given run.
+        - name: job_run_ingest
+          default: "1"
+        - name: job_run_land_to_raw
+          default: "1"
+        - name: job_run_raw_to_std
+          default: "1"
+        - name: job_run_std_to_curated
+          default: "1"
+        - name: job_run_integrate
+          default: "1"
+
+      email_notifications:
+        # Alert recipients for job failures.
+        on_failure: ${var.job_alert_emails}
+
+      # Shared job cluster used by notebook tasks in this sample workflow.
+      # Central classic: use new_cluster: ${var.compute_classic_central_cluster}.
+      # Serverless: remove job_clusters and add the following job-level setting:
+      # environments: ${var.compute_serverless_environments}
+      # Replace every notebook task's job_cluster_key with:
+      # environment_key: ${var.compute_serverless_environment_key}
+      # Leave condition tasks without compute references.
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster: ${var.compute_classic_local_cluster}
+
+      tasks:
+        # Entry point that validates inputs and decides whether downstream flow continues.
+        - task_key: main
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_00_main.py
+            base_parameters: ${var.common_base_parameters}
+
+        # Checks the flow control value emitted by main before proceeding.
+        - task_key: check_after_main
+          depends_on:
+            - task_key: main
+          condition_task:
+            left: "{{tasks.main.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        # Evaluates whether the ingest stage is enabled for this run.
+        - task_key: check_run_ingest
+          depends_on:
+            - task_key: check_after_main
+              outcome: "true"
+          condition_task:
+            left: "{{job.parameters.job_run_ingest}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        # Executes the ingest stage when enabled.
+        - task_key: ingest
+          depends_on:
+            - task_key: check_run_ingest
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          #existing_cluster_id: ${var.job_cluster_id}
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_10_ingest.py
+            base_parameters: ${var.common_base_parameters}
+
+        # Checks whether ingest requested the pipeline to continue.
+        - task_key: check_after_ingest
+          depends_on:
+            - task_key: ingest
+          condition_task:
+            left: "{{tasks.ingest.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        # Evaluates whether the land-to-raw stage should run next.
+        - task_key: check_run_land_to_raw
+          depends_on:
+            - task_key: check_run_ingest
+              outcome: "false"
+            - task_key: check_after_ingest
+              outcome: "true"
+          run_if: AT_LEAST_ONE_SUCCESS
+          condition_task:
+            left: "{{job.parameters.job_run_land_to_raw}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        # Transforms landed data into the raw zone.
+        - task_key: land_to_raw
+          depends_on:
+            - task_key: check_run_land_to_raw
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          #existing_cluster_id: ${var.job_cluster_id}
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_20_land_to_raw.py
+            base_parameters: ${var.common_base_parameters}
+
+        # Checks whether land_to_raw requested the pipeline to continue.
+        - task_key: check_after_land_to_raw
+          depends_on:
+            - task_key: land_to_raw
+          condition_task:
+            left: "{{tasks.land_to_raw.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        # Evaluates whether the raw-to-std stage should run next.
+        - task_key: check_run_raw_to_std
+          depends_on:
+            - task_key: check_run_land_to_raw
+              outcome: "false"
+            - task_key: check_after_land_to_raw
+              outcome: "true"
+          run_if: AT_LEAST_ONE_SUCCESS
+          condition_task:
+            left: "{{job.parameters.job_run_raw_to_std}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        # Transforms raw data into the standardized zone.
+        - task_key: raw_to_std
+          depends_on:
+            - task_key: check_run_raw_to_std
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          #existing_cluster_id: ${var.job_cluster_id}
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_30_raw_to_std.py
+            base_parameters: ${var.common_base_parameters}
+
+        # Checks whether raw_to_std requested the pipeline to continue.
+        - task_key: check_after_raw_to_std
+          depends_on:
+            - task_key: raw_to_std
+          condition_task:
+            left: "{{tasks.raw_to_std.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        # Evaluates whether the std-to-curated stage should run next.
+        - task_key: check_run_std_to_curated
+          depends_on:
+            - task_key: check_run_raw_to_std
+              outcome: "false"
+            - task_key: check_after_raw_to_std
+              outcome: "true"
+          run_if: AT_LEAST_ONE_SUCCESS
+          condition_task:
+            left: "{{job.parameters.job_run_std_to_curated}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        # Transforms standardized data into the curated zone.
+        - task_key: std_to_curated
+          depends_on:
+            - task_key: check_run_std_to_curated
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          #existing_cluster_id: ${var.job_cluster_id}
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_40_std_to_curated.py
+            base_parameters: ${var.common_base_parameters}
+
+        # Checks whether std_to_curated requested the pipeline to continue.
+        - task_key: check_after_std_to_curated
+          depends_on:
+            - task_key: std_to_curated
+          condition_task:
+            left: "{{tasks.std_to_curated.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        # Evaluates whether the integration stage should run next.
+        - task_key: check_run_integrate
+          depends_on:
+            - task_key: check_run_std_to_curated
+              outcome: "false"
+            - task_key: check_after_std_to_curated
+              outcome: "true"
+          run_if: AT_LEAST_ONE_SUCCESS
+          condition_task:
+            left: "{{job.parameters.job_run_integrate}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        # Runs project-specific integration after curated processing.
+        - task_key: integrate
+          depends_on:
+            - task_key: check_run_integrate
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          #existing_cluster_id: ${var.job_cluster_id}
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_50_integrate.py
+            base_parameters: ${var.common_base_parameters}
+
+        # Final success-path handler for notifications and wrap-up logic.
+        - task_key: on_complete
+          depends_on:
+            - task_key: check_after_main
+              outcome: "false"
+            - task_key: check_after_ingest
+              outcome: "false"
+            - task_key: check_after_land_to_raw
+              outcome: "false"
+            - task_key: check_after_raw_to_std
+              outcome: "false"
+            - task_key: check_after_std_to_curated
+              outcome: "false"
+            - task_key: check_run_integrate
+              outcome: "false"
+            - task_key: integrate
+          run_if: AT_LEAST_ONE_SUCCESS
+          job_cluster_key: Job_cluster
+          #existing_cluster_id: ${var.job_cluster_id}
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_90_on_complete.py
+            base_parameters: ${var.common_base_parameters}
+
+        # Failure-path handler that runs when any processing stage fails.
+        - task_key: on_failure
+          depends_on:
+            - task_key: ingest
+            - task_key: land_to_raw
+            - task_key: raw_to_std
+            - task_key: std_to_curated
+            - task_key: integrate
+          run_if: AT_LEAST_ONE_FAILED
+          job_cluster_key: Job_cluster
+          #existing_cluster_id: ${var.job_cluster_id}
+          notebook_task:
+            notebook_path: ../../jobs/dataflow/task_91_on_failure.py
+            base_parameters: ${var.common_base_parameters}
+
+targets:
+  dev:
+    resources:
+      jobs:
+        DATAFLOW:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED
+
+  stg:
+    resources:
+      jobs:
+        DATAFLOW:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED
+
+  prd:
+    resources:
+      jobs:
+        DATAFLOW:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED

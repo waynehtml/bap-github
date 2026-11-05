@@ -1,0 +1,25 @@
+{
+  "pipeline": "submit_adf_pipeline",
+  "tasks": [
+    {
+      "id": "submit_adf_pipeline",
+      "handler": "oedis.handler.adf.run",
+      "params": {
+        "connection": {
+          "tenant_id": "{{ keyvault(scope='oedis-kv', key='azure-tenant-id') }}",
+          "client_id": "{{ keyvault(scope='oedis-kv', key='adf-spn-client-id') }}",
+          "client_secret": "{{ keyvault(scope='oedis-kv', key='adf-spn-client-secret') }}",
+          "subscription_id": "00000000-0000-0000-0000-000000000000",
+          "resource_group": "rg-datafactory-dev",
+          "factory_name": "adf-enterprise-ingestion-dev"
+        },
+        "pipeline_name": "pl_ingest_vendor_file",
+        "parameters": {
+          "provider": "paycan",
+          "dataset": "daily_positions"
+        },
+        "mode": "submit"
+      }
+    }
+  ]
+}

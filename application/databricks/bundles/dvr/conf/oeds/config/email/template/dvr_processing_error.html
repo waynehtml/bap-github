@@ -1,0 +1,46 @@
+<html>
+<head>
+  <style>
+    body { margin: 0; background: #f5f7fa; color: #1f2933; font-family: Calibri, Arial, sans-serif; }
+    .container { width: 100%; max-width: 760px; margin: 0 auto; }
+    .header { padding: 28px 32px; background: #1B3A5C; color: #ffffff; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .header p { margin: 8px 0 0; font-size: 14px; color: #d7edf7; }
+    .content { padding: 28px 32px 32px; background: #ffffff; line-height: 1.6; }
+    .status { margin: 0 0 24px; padding: 14px 16px; border-left: 4px solid #B71C1C; background: #FDECEA; font-size: 16px; }
+    .status strong { color: #B71C1C; }
+    h2 { margin: 28px 0 12px; font-size: 17px; color: #1B3A5C; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { padding: 10px 12px; background: #e7f1f5; border: 1px solid #c7d6dd; color: #123b4d; text-align: left; }
+    td { padding: 10px 12px; border: 1px solid #dce3e8; }
+    tr:nth-child(even) td { background: #f8fafb; }
+    .footer { padding: 16px 32px; background: #edf1f3; color: #52606d; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Swift DVR Pipeline Failure</h1>
+      <p>$filename<br>$report_date</p>
+    </div>
+    <div class="content">
+      <p class="status">Status: <strong>FAILED</strong></p>
+      <p>One or more pipeline tasks did not complete for the referenced file.</p>
+      <p><strong>Failed or skipped tasks:</strong> $failed_tasks</p>
+
+      <h2>Reconciliation Summary</h2>
+      <table>
+        <tr><th>Metric</th><th>Count</th></tr>
+        <tr><td>Total reconciled</td><td><strong>$total_reconciled</strong></td></tr>
+        <tr><td>Successful matches</td><td>$success</td></tr>
+        <tr><td>Warnings</td><td style="color:#E65100;font-weight:600">$warnings</td></tr>
+      </table>
+      <p>"Not available" means reconciliation did not run for this file.</p>
+
+      $task_status_html
+      <p>The support team has been notified. No action is needed from you unless asked to re-upload the file.</p>
+    </div>
+    <div class="footer">This message was sent from an unmonitored email address (FMBODW_Support_Noreply). Please do not respond.</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "id": "http_request_api_key_header_json",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "api_key",
+        "location": "header",
+        "name": "X-API-Key",
+        "value": "{{ keyvault(scope=\"dis-secrets\", key=\"http-api-key\") }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "notify_ready",
+        "method": "POST",
+        "path": "notifications",
+        "body": {
+          "type": "json",
+          "value": {
+            "event": "report.ready",
+            "reportDate": "{{ runtime.rundate }}"
+          }
+        },
+        "response": {
+          "expected_status": 202
+        }
+      }
+    ]
+  }
+}

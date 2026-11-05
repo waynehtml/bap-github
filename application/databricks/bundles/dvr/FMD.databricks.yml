@@ -1,0 +1,54 @@
+targets:
+  dev:
+    default: true
+    variables:
+      job_runas_account: "bcb4909e-06b7-411a-97bd-366fe459b759"
+      job_alert_emails:
+        - dda-support-dev@bank-banque-canada.ca
+      job_permissions:
+        - group_name: "lake_aeengsupport_rusr_inda"
+          level: CAN_MANAGE
+        # lake-dev-oedataservices-services
+        - service_principal_name: "2b501945-5940-4527-9cdd-51a07b77ceb7"
+          level: CAN_MANAGE_RUN
+      email_mappings: '{"DDA":"dda-support-dev@bank-banque-canada.ca"}'
+
+  stg:
+    mode: production
+    variables:
+      job_runas_account: "22f42251-7b4a-45a5-b802-32b798af7896"
+      job_alert_emails:
+        - dda-support-stg@bank-banque-canada.ca
+        - triton-support@bank-banque-canada.ca
+        - DataLakeMonitoring-STG@bank-banque-canada.ca
+      job_permissions:
+        - group_name: "lake_aeengsupport_rusr_inpa"
+          level: CAN_MANAGE
+        # lake-stg-oedataservices-services
+        - service_principal_name: "118bb443-4441-422d-b9b4-14cdc5ede028"
+          level: CAN_MANAGE_RUN
+        - group_name: "lake_dmengineer_rusr_inpa"
+          level: CAN_MANAGE_RUN
+        - group_name: "lake_tritonsupport_rusr_inpa"
+          level: CAN_VIEW
+      email_mappings: '{"DDA":"dda-support-stg@bank-banque-canada.ca","DM":"DataLakeMonitoring-STG@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+
+  prd:
+    mode: production
+    variables:
+      job_runas_account: "2acbbaf6-e1bc-41cf-8d7f-ff2eff302b37"
+      job_alert_emails:
+        - dda-support@bank-banque-canada.ca
+        - DataLakeMonitoring-PRD@bank-banque-canada.ca
+        - triton-support@bank-banque-canada.ca
+      job_permissions:
+        - group_name: "lake_aeengsupport_rusr_inpa"
+          level: CAN_MANAGE
+        # lake-prd-oedataservices-services
+        - service_principal_name: "9a4da41a-bd6d-4773-99ce-2ba8b78f4d65"
+          level: CAN_MANAGE_RUN
+        - group_name: "lake_dmengineer_rusr_inpa"
+          level: CAN_MANAGE_RUN
+        - group_name: "lake_tritonsupport_rusr_inpa"
+          level: CAN_VIEW
+      email_mappings: '{"DDA":"dda-support@bank-banque-canada.ca","DM":"DataLakeMonitoring-PRD@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'

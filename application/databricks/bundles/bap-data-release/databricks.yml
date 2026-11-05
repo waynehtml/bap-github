@@ -1,0 +1,78 @@
+# BAP Data Release Bundle
+# Centralized DB release management for dev_banking_and_payments_cat
+# All DDL (tables, views, mviews) across all BAP datasets live here.
+# ETL logic stays in each team's own bundle (habs, dvr, etc.).
+#
+# Deployment: 2-step process
+#   1. DB release  -> this bundle (schema/table DDL)
+#   2. ETL release -> team bundles (notebooks, jobs, apps)
+
+bundle:
+  name: bap-data-release
+
+variables:
+  sql_warehouse_id:
+    description: SQL warehouse ID for DDL execution
+    default: ""
+
+targets:
+  dev:
+    default: true
+    workspace:
+      host: https://adb-1700301391505163.3.azuredatabricks.net
+    variables:
+      catalog: dev_banking_and_payments_cat
+
+  stg:
+    workspace:
+      host: https://lake-cac-prd-dbw-stguc01.azuredatabricks.net
+    variables:
+      catalog: stg_banking_and_payments_cat
+
+  prd:
+    workspace:
+      host: https://lake-cac-prd-dbw-prduc01.azuredatabricks.net
+    variables:
+      catalog: prd_banking_and_payments_cat
+
+resources:
+  jobs:
+    bap_data_release:
+      name: BAP Data Release
+      tasks:
+        - task_key: deploy_dimensions
+          notebook_task:
+            notebook_path: src/deploy.py
+            base_parameters:
+              catalog: ${var.catalog}
+              release_version: ""
+              stage: Dimensions
+              max_parallelism: "4"
+              sql_warehouse_id: ${var.sql_warehouse_id}
+          existing_cluster_id: ""
+
+        - task_key: deploy_facts
+          depends_on:
+            - task_key: deploy_dimensions
+          notebook_task:
+            notebook_path: src/deploy.py
+            base_parameters:
+              catalog: ${var.catalog}
+              release_version: ""
+              stage: Facts
+              max_parallelism: "4"
+              sql_warehouse_id: ${var.sql_warehouse_id}
+          existing_cluster_id: ""
+
+        - task_key: deploy_views
+          depends_on:
+            - task_key: deploy_facts
+          notebook_task:
+            notebook_path: src/deploy.py
+            base_parameters:
+              catalog: ${var.catalog}
+              release_version: ""
+              stage: Views
+              max_parallelism: "4"
+              sql_warehouse_id: ${var.sql_warehouse_id}
+          existing_cluster_id: ""

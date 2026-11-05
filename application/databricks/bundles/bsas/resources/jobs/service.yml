@@ -1,0 +1,86 @@
+# purpose: Runs release and maintenance tasks.
+# required: true
+variables:
+  # name: service_job_name
+  # description: Uppercase full display name for the service job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.domain and project.dataset using the
+  #     uppercase form <DOMAIN>-<DATASET>-SERVICE.
+  #   input_example: "FMD-CORRA-SERVICE"
+  service_job_name:
+    default: "BAP-BSAS-SERVICE"
+  # name: service_job_description
+  # description: Operator-facing description of the service job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.dataset using <dataset> service job.
+  #   input_example: "Runs CORRA release and maintenance tasks."
+  service_job_description:
+    default: "bsas service job"
+
+resources:
+  jobs:
+    SERVICE:
+      # Display name that appears in the Databricks Jobs UI.
+      name: ${var.service_job_name}
+      # Short description to help operators understand the pipeline's purpose.
+      description: ${var.service_job_description}
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        application: ${var.project.dataset}
+        type: "operation"
+        criticality: "low"
+
+      permissions: ${var.job_permissions}
+
+      run_as:
+        # Service principal used to run the job in each deployed environment.
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        # Queue overlapping triggers instead of rejecting them when capacity is busy.
+        enabled: false
+      # Limit how many runs of this job may execute at the same time.
+      max_concurrent_runs: 1
+
+      # Job-level parameters are exposed in the Jobs UI and can be overridden per run.
+      parameters:
+        # Business date or processing date supplied at runtime.
+        - name: rundate
+          default: ""
+        # Per-run debug override for notebook logging/behavior.
+        - name: debug
+          default: ${var.debug}
+        # task accepts either a notebook path or a named service task.
+        - name: task
+          default: ""
+        # args is a JSON object string passed to the target notebook.
+        - name: args
+          default: ""
+
+      email_notifications:
+        # Alert recipients for job failures.
+        on_failure: ${var.job_alert_emails}
+
+      # Shared job cluster used by notebook tasks in this sample workflow.
+      # Central classic: use new_cluster: ${var.compute_classic_central_cluster}.
+      # Serverless: remove job_clusters and add the following job-level setting:
+      # environments: ${var.compute_serverless_environments}
+      # Replace every notebook task's job_cluster_key with:
+      # environment_key: ${var.compute_serverless_environment_key}
+      # Leave condition tasks without compute references.
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster: ${var.compute_classic_local_cluster}
+
+      tasks:
+        # Entry point that validates inputs and decides whether downstream flow continues.
+        - task_key: main
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/service/task_00_main.py
+            base_parameters: ${var.common_base_parameters}

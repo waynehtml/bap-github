@@ -1,0 +1,416 @@
+common_base_parameters: &common_base_parameters
+  # Metadata
+  team: ${var.project.team}
+  domain: ${var.project.domain}
+  # SQL Warehouse ID
+  sql_warehouse_id: ${var.sql_warehouse_id}
+
+  # Bunlde
+  bundle_root: ${var.bundle_root}
+
+  # Date/Geo Settings
+  timezone: "${var.timezone}"
+  human_date_format: "${var.human_date_format}"
+  python_date_format: "${var.python_date_format}"
+  spark_date_format: "${var.spark_date_format}"
+
+  # Runtime
+  env: ${bundle.target}
+  dbk_runtime_version: "${var.dbk_runtime_version}"
+  job_name: "{{job.name}}"
+  job_id: "{{job.id}}"
+  job_run_id: "{{job.run_id}}"
+  job_trigger_type: "{{job.trigger.type}}"
+  workspace_url: "{{workspace.url}}"
+
+  # UC
+  catalog: "${var.catalog}"
+  config_root: "${var.config_root}"
+  habs_catalog: "${var.habs_catalog}"
+  fmbodw_catalog: "${var.fmbodw_catalog}"
+
+  # secret scope
+  secret_scope: "${var.secret_scope}"
+  oeds_secret_scope: "${var.oeds_secret_scope}"
+
+  # System Integration settings
+  azure_tenant_id: "${var.azure_tenant_id}"
+  
+  # Service SPN
+  service_spn_id_key: "${var.service_spn_id_key}"
+  service_spn_secret_key: "${var.service_spn_secret_key}"
+
+  # Internal ingestion serivce
+  internal_databricks_workspace_url: "${var.internal_databricks_workspace_url}"
+  internal_databricks_resource_id: "${var.internal_databricks_resource_id}"
+  internal_dis_job_id: "${var.internal_dis_job_id}"
+
+  # External ingestion serivce
+  external_databricks_workspace_url: "${var.external_databricks_workspace_url}"
+  external_databricks_resource_id: "${var.external_databricks_resource_id}"
+  external_dis_job_id: ""
+
+  # Email
+  email_service_url_key: "${var.email_service_url_key}"
+  email_mappings: ${var.email_mappings}
+
+  # Datamart
+  datamart_endpoints: "${var.datamart_endpoints}"
+
+  # Nexus
+  nexus_url: "${var.nexus_url}"
+  nexus_init_path: ${var.CLUSTER_INIT_PATH}
+
+common_job_cluster: &common_job_cluster
+  job_cluster_key: Job_cluster
+  new_cluster:
+    # Cluster policy and runtime should stay aligned with platform standards.
+    policy_id: ${var.job_cluster_policy_id}
+    apply_policy_default_values: true
+    spark_version: ${var.dbk_runtime_version}
+    autoscale:
+      min_workers: 1
+      max_workers: 2
+    init_scripts:
+      - volumes:
+          # Optional init script location mounted from Unity Catalog volumes.
+          destination: ${var.CLUSTER_INIT_PATH}/init.sh
+
+    spark_env_vars:
+      CLUSTER_ENV: ${bundle.target}
+
+resources:
+  jobs:
+    compare_table_contents:
+      name: BAP-COMPARE_TABLE_CONTENTS
+      description: "This job compare the source and target tables."
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-COMPARE_TABLE_CONTENTS"
+        type: "operation"
+        criticality: "standard"
+
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        enabled: true
+
+      max_concurrent_runs: 1
+
+      parameters:
+        - name: source_catalog
+          default: ${var.fmbodw_catalog}
+        - name: source_schema
+          default: "fmbodw"
+        - name: target_catalog
+          default: ${var.catalog}
+        - name: target_schema
+          default: "curated_db"
+        - name: tables_list
+          default: |
+            [
+              "bo_account_bal_type_dim",
+              "bo_account_dim",
+              "bo_account_balance_daily_fact"
+            ]
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+      job_clusters:
+        - <<: *common_job_cluster
+
+      tasks:
+        - task_key: compare_table_contents
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../jobs/compare_table_contents/compare_table_contents.py
+            base_parameters:
+              <<: *common_base_parameters
+
+    backup_tables:
+      name: BAP-BACKUP-TABLES
+      description: "This job supports backing up tables."
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-BACKUP-TABLES"
+        type: "operation"
+        criticality: "standard"
+
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        enabled: true
+
+      max_concurrent_runs: 1
+
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: tables_list
+          default: |
+            [
+              "curated_db.tbl_bo_account_bal_type_dim",
+              "curated_db.tbl_bo_account_dim",
+              "curated_db.tbl_bo_account_balance_daily_fact"
+            ]
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+      tasks:
+        - task_key: backup_tables
+          notebook_task:
+            notebook_path: ../jobs/backup_tables/backup_tables.py
+            base_parameters:
+              <<: *common_base_parameters
+
+    drop_tables:
+      name: BAP-DROP-TABLES
+      description: "This job supports dropping unrequired tables."
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-DROP-TABLES"
+        type: "operation"
+        criticality: "standard"
+
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        enabled: true
+
+      max_concurrent_runs: 1
+
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: tables_list
+          default: |
+            [
+              "curated_db.tbl_bo_account_bal_type_dim_20261024",
+              "curated_db.tbl_bo_account_dim_20261024",
+              "curated_db.tbl_bo_account_balance_daily_fact_20261024"
+            ]
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+      job_clusters:
+        - <<: *common_job_cluster
+
+      tasks:
+        - task_key: drop_tables
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../jobs/drop_tables/drop_tables.py
+            base_parameters:
+              <<: *common_base_parameters
+
+
+    release_deployment_serverless:
+      name: BAP-DATA-RELEASE-DEPLOYMENT-Serverless
+      description: "Deploys tables, views, and materialized views via SQL warehouse."
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-DATA-RELEASE-DEPLOYMENT-Serverless"
+        type: "operation"
+        criticality: "standard"
+
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        enabled: true
+
+      max_concurrent_runs: 1
+
+      parameters:
+        - name: debug
+          default: ${var.debug}
+        - name: catalog
+          default: ${var.catalog}
+        - name: release_version
+          default: "release-serverless"
+        - name: max_parallelism
+          default: "8"
+        - name: sql_warehouse_id
+          default: ${var.sql_warehouse_id}
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+
+      tasks:
+        - task_key: deploy_dimensions
+
+          notebook_task:
+            notebook_path: ../jobs/release_deploy_serverless/deploy.py
+            base_parameters:
+              <<: *common_base_parameters
+              stage: "Dimensions"
+
+        - task_key: deploy_facts
+
+          depends_on:
+            - task_key: deploy_dimensions
+          notebook_task:
+            notebook_path: ../jobs/release_deploy_serverless/deploy.py
+            base_parameters:
+              <<: *common_base_parameters
+              stage: "Facts"
+
+        - task_key: deploy_views
+
+          depends_on:
+            - task_key: deploy_facts
+          notebook_task:
+            notebook_path: ../jobs/release_deploy_serverless/deploy.py
+            base_parameters:
+              <<: *common_base_parameters
+              stage: "Views"
+
+        - task_key: deploy_materialized_views
+
+          depends_on:
+            - task_key: deploy_views
+          notebook_task:
+            notebook_path: ../jobs/release_deploy_serverless/deploy.py
+            base_parameters:
+              <<: *common_base_parameters
+              stage: "MViews"
+
+    release_deployment:
+      name: BAP-DATA-RELEASE-DEPLOYMENT
+      description: "This job supports the deployment of the BAP data release."
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-DATA-RELEASE-DEPLOYMENT"
+        type: "operation"
+        criticality: "standard"
+
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        enabled: true
+
+      max_concurrent_runs: 1
+
+      parameters:
+        - name: debug
+          default: ${var.debug}
+        - name: catalog
+          default: ${var.catalog}
+        - name: release_version
+          default: "release-1.0.0"
+        - name: execution_mode
+          default: "parallel"
+        - name: max_parallelism
+          default: "8"
+        - name: fmd_catalog
+          default: ${var.fmd_catalog}
+        - name: ref_catalog
+          default: ${var.ref_catalog}           
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+      job_clusters:
+        - <<: *common_job_cluster
+
+      tasks:
+        - task_key: deploy_dimensions
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../jobs/release_deploy/deploy.py
+            base_parameters:
+              <<: *common_base_parameters
+              stage: "Dimensions"
+
+        - task_key: deploy_facts
+          job_cluster_key: Job_cluster
+          depends_on:
+            - task_key: deploy_dimensions
+          notebook_task:
+            notebook_path: ../jobs/release_deploy/deploy.py
+            base_parameters:
+              <<: *common_base_parameters
+              stage: "Facts"
+
+        - task_key: deploy_views
+          job_cluster_key: Job_cluster
+          depends_on:
+            - task_key: deploy_facts
+          notebook_task:
+            notebook_path: ../jobs/release_deploy/deploy.py
+            base_parameters:
+              <<: *common_base_parameters
+              stage: "Views"
+
+targets:
+  dev:
+    resources:
+      jobs:
+        release_deployment:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        backup_tables:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+  stg:
+    resources:
+      jobs:
+        release_deployment:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        backup_tables:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN
+
+  prd:
+    resources:
+      jobs:
+        release_deployment:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        backup_tables:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN

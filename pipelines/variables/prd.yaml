@@ -1,0 +1,21 @@
+# Non-secret configuration for the prd deployment environment.
+variables:
+  - name: databricks-DMZ-host
+    value: 'https://adb-7405611475617935.15.azuredatabricks.net'
+    readonly: true
+
+  - name: databricks-UC01-host
+    value: 'https://adb-642333651898149.9.azuredatabricks.net'
+    readonly: true
+
+  - name: service_connection
+    value: 'lake-dscn-prdbocad01'
+    readonly: true
+
+  - name: storage_land01
+    value: 'lakecacprdstprdland01'
+    readonly: true
+
+  - name: storage_land02
+    value: 'lakecacprdstprdland02'
+    readonly: true

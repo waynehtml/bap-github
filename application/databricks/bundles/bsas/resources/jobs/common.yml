@@ -1,0 +1,416 @@
+variables:
+  # Service principal used to run jobs.
+  # Resolve by confirmed project.domain, then target; preserve the identifier.
+  # mapping:
+  #   FMD:
+  #     dev: bcb4909e-06b7-411a-97bd-366fe459b759
+  #     stg: 22f42251-7b4a-45a5-b802-32b798af7896
+  #     prd: 2acbbaf6-e1bc-41cf-8d7f-ff2eff302b37
+  #   CUR:
+  #     dev: b1d31712-0160-4825-ac5c-ec70e15ad0fd
+  #     stg: 6f917a13-1483-4b38-91a4-d834e762b194
+  #     prd: 763bd90e-0444-496e-a03b-755f9bce8707
+  #   BAP:
+  #     dev: 2b501945-5940-4527-9cdd-51a07b77ceb7
+  #     stg: 118bb443-4441-422d-b9b4-14cdc5ede028
+  #     prd: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+  #   SUP:
+  #     dev: 07b85d8e-700b-4706-84ea-afa60a3ffedd
+  #     stg: 54ce4715-baab-4988-aaa6-80c973d53d45
+  #     prd: 76696d8d-1a10-44a0-8cd3-08e050e0911d
+  #   OEDS:
+  #     dev: 2b501945-5940-4527-9cdd-51a07b77ceb7
+  #     stg: 118bb443-4441-422d-b9b4-14cdc5ede028
+  #     prd: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+  job_runas_account:
+    description: Environment-specific service principal used to run jobs.
+  # Recipients notified when a job fails.
+  # Resolve by confirmed project.domain, then target; preserve the native YAML list.
+  # mapping:
+  #   FMD:
+  #     dev:
+  #     - dda-support-dev@bank-banque-canada.ca
+  #     stg:
+  #     - dda-support-stg@bank-banque-canada.ca
+  #     - triton-support@bank-banque-canada.ca
+  #     - DataLakeMonitoring-STG@bank-banque-canada.ca
+  #     prd:
+  #     - dda-support@bank-banque-canada.ca
+  #     - DataLakeMonitoring-PRD@bank-banque-canada.ca
+  #     - triton-support@bank-banque-canada.ca
+  #   CUR:
+  #     dev:
+  #     - dda-support-dev@bank-banque-canada.ca
+  #     stg:
+  #     - dda-support-stg@bank-banque-canada.ca
+  #     - DataLakeMonitoring-STG@bank-banque-canada.ca
+  #     prd:
+  #     - dda-support@bank-banque-canada.ca
+  #     - DataLakeMonitoring-PRD@bank-banque-canada.ca
+  #   BAP:
+  #     dev:
+  #     - dda-support-dev@bank-banque-canada.ca
+  #     stg:
+  #     - dda-support-stg@bank-banque-canada.ca
+  #     - DataLakeMonitoring-STG@bank-banque-canada.ca
+  #     prd:
+  #     - dda-support@bank-banque-canada.ca
+  #     - DataLakeMonitoring-PRD@bank-banque-canada.ca
+  #   SUP:
+  #     dev:
+  #     - dda-support-dev@bank-banque-canada.ca
+  #     stg:
+  #     - dda-support-stg@bank-banque-canada.ca
+  #     - DataLakeMonitoring-STG@bank-banque-canada.ca
+  #     prd:
+  #     - dda-support@bank-banque-canada.ca
+  #     - DataLakeMonitoring-PRD@bank-banque-canada.ca
+  #   OEDS:
+  #     dev:
+  #     - dda-support-dev@bank-banque-canada.ca
+  #     stg:
+  #     - dda-support-stg@bank-banque-canada.ca
+  #     - DataLakeMonitoring-STG@bank-banque-canada.ca
+  #     prd:
+  #     - dda-support@bank-banque-canada.ca
+  #     - DataLakeMonitoring-PRD@bank-banque-canada.ca
+  job_alert_emails:
+    description: Environment-specific job failure notification recipients.
+    type: complex
+  # Shared permissions applied to every enabled job.
+  # Resolve by confirmed project.domain, then target; preserve every entry and level.
+  # mapping:
+  #   FMD:
+  #     dev:
+  #     - group_name: lake_aeengsupport_rusr_inda
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 2b501945-5940-4527-9cdd-51a07b77ceb7
+  #       level: CAN_MANAGE_RUN
+  #     stg:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 118bb443-4441-422d-b9b4-14cdc5ede028
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_tritonsupport_rusr_inpa
+  #       level: CAN_VIEW
+  #     prd:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_tritonsupport_rusr_inpa
+  #       level: CAN_VIEW
+  #   CUR:
+  #     dev:
+  #     - group_name: lake_aeengsupport_rusr_inda
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 2b501945-5940-4527-9cdd-51a07b77ceb7
+  #       level: CAN_MANAGE_RUN
+  #     stg:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 118bb443-4441-422d-b9b4-14cdc5ede028
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #     prd:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #   BAP:
+  #     dev:
+  #     - group_name: lake_aeengsupport_rusr_inda
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 2b501945-5940-4527-9cdd-51a07b77ceb7
+  #       level: CAN_MANAGE_RUN
+  #     stg:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 118bb443-4441-422d-b9b4-14cdc5ede028
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #     prd:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #   SUP:
+  #     dev:
+  #     - group_name: lake_aeengsupport_rusr_inda
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 2b501945-5940-4527-9cdd-51a07b77ceb7
+  #       level: CAN_MANAGE_RUN
+  #     stg:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 118bb443-4441-422d-b9b4-14cdc5ede028
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #     prd:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #   OEDS:
+  #     dev:
+  #     - group_name: lake_aeengsupport_rusr_inda
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 2b501945-5940-4527-9cdd-51a07b77ceb7
+  #       level: CAN_MANAGE_RUN
+  #     stg:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 118bb443-4441-422d-b9b4-14cdc5ede028
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  #     prd:
+  #     - group_name: lake_aeengsupport_rusr_inpa
+  #       level: CAN_MANAGE
+  #     - service_principal_name: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+  #       level: CAN_MANAGE_RUN
+  #     - group_name: lake_dmengineer_rusr_inpa
+  #       level: CAN_MANAGE_RUN
+  job_permissions:
+    description: Environment-specific permissions shared by all jobs.
+    type: complex
+  common_base_parameters:
+    type: complex
+    default:
+      # Project Metadata
+      team: ${var.project.team}
+      domain: ${var.project.domain}
+      dataset: ${var.project.dataset}
+
+      # Date/Geo Settings
+      timezone: "${var.timezone}"
+      human_date_format: "${var.human_date_format}"
+      python_date_format: "${var.python_date_format}"
+      spark_date_format: "${var.spark_date_format}"
+      holiday_group: "${var.holiday_group}"
+
+      # Runtime settings
+      env: ${bundle.target}
+      bundle_root: ${var.bundle_root}
+      dbk_runtime_version: "${var.compute_classic_runtime_version}"
+      job_name: "{{job.name}}"
+      job_id: "{{job.id}}"
+      job_run_id: "{{job.run_id}}"
+      job_trigger_type: "{{job.trigger.type}}"
+      workspace_url: "{{workspace.url}}"
+      nexus_url: "${var.nexus_url}"
+      nexus_init_path: ${var.bundle_root}/cluster
+
+      # Project Databricks resources
+      catalog: "${var.catalog}"
+      land_root: "${var.land_root}"
+      tmp_root: "${var.tmp_root}"
+      outbound_root: "${var.outbound_root}"
+      config_root: "${var.config_root}"
+      raw_root: "${var.raw_root}"
+      secrete_scope: "${var.secrete_scope}"
+      oeds_secrete_scope: "${var.oeds_secrete_scope}"
+
+      # Project Databricks catalogs
+      fmd_catalog: "${var.fmd_catalog}"
+      cur_catalog: "${var.cur_catalog}"
+      bap_catalog: "${var.bap_catalog}"
+      sup_catalog: "${var.sup_catalog}"
+      metadata_catalog: "${var.metadata_catalog}"
+      reference_catalog: "${var.reference_catalog}"
+      application_catalog: "${var.application_catalog}"
+      internal_catalog: "${var.internal_catalog}"
+
+      # System Integration settings
+      azure_subscription_id: "${var.azure_subscription_id}"
+      azure_tenant_id: "${var.azure_tenant_id}"
+      # Service SPN
+      service_spn_id_key: "${var.service_spn_id_key}"
+      service_spn_secrete_key: "${var.service_spn_secrete_key}"
+
+      # Databricks integration settings - jobs and SQL warehouses
+      internal_databricks_workspace_url: "${var.internal_databricks_workspace_url}"
+      internal_databricks_resource_id: "${var.internal_databricks_resource_id}"
+      external_databricks_workspace_url: "${var.external_databricks_workspace_url}"
+      external_databricks_resource_id: "${var.external_databricks_resource_id}"
+      sql_warehouse_serverless_large_id: "${var.sql_warehouse_serverless_large_id}"
+      sql_warehouse_classic_medium_id: "${var.sql_warehouse_classic_medium_id}"
+
+      # DataBridge ingestion service settings
+      dis_av_root: "${var.dis_av_root}"
+      dis_oedisext_client_id_key: "${var.dis_oedisext_client_id_key}"
+      dis_oedisext_client_secret_key: "${var.dis_oedisext_client_secret_key}"
+      internal_dis_job_id: "${var.internal_dis_job_id}"
+      external_dis_job_id: "${var.external_dis_job_id}"
+
+      # Email service settings
+      email_service_url_key: "${var.email_service_url_key}"
+
+      # DataBridge email service
+      databridge_email_tenant_id_key: "${var.databridge_email_tenant_id_key}"
+      databridge_email_client_id_key: "${var.databridge_email_client_id_key}"
+      databridge_email_client_secret_key: "${var.databridge_email_client_secret_key}"
+      databridge_email_sender_account: "${var.databridge_email_sender_account}"
+
+      # Time series data publishing settings
+      datamart_endpoints_key: "${var.datamart_endpoints_key}"
+
+      # Project settings
+      # Recipient mappings
+      email_mappings: ${var.email_mappings}
+
+  # Compute configurations - local classic remains the default for jobs.
+  compute_classic_local_cluster:
+    type: complex
+    default: &compute_classic_cluster
+      # Cluster policy and runtime should stay aligned with platform standards.
+      policy_id: ${var.compute_classic_job_policy_id}
+      apply_policy_default_values: true
+      spark_version: ${var.compute_classic_runtime_version}
+      autoscale:
+        min_workers: 1
+        max_workers: 2
+      init_scripts:
+        - workspace:
+            # Default init script location deployed with the bundle workspace files.
+            destination: ${var.compute_classic_local_init_path}
+      spark_env_vars:
+        CLUSTER_ENV: ${bundle.target}
+
+  compute_classic_central_cluster:
+    type: complex
+    default:
+      <<: *compute_classic_cluster
+      init_scripts:
+        - volumes:
+            destination: ${var.compute_classic_central_init_path}
+
+  compute_serverless_environments:
+    type: complex
+    default:
+      - environment_key: ${var.compute_serverless_environment_key}
+        spec:
+          base_environment: ${var.compute_serverless_environment_path}
+
+targets:
+  dev:
+    variables:
+      # name: dev_job_runas_account
+      # description: Mapped dev value for job_runas_account.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_runas_account in this file,
+      #     selecting confirmed project.domain case-insensitively, then dev.
+      #     Preserve the mapped YAML type.
+      job_runas_account: "2b501945-5940-4527-9cdd-51a07b77ceb7"
+      # name: dev_job_alert_emails
+      # description: Mapped dev value for job_alert_emails.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_alert_emails in this file,
+      #     selecting confirmed project.domain case-insensitively, then dev.
+      #     Preserve the mapped YAML type.
+      job_alert_emails:
+        - dda-support-dev@bank-banque-canada.ca
+      # name: dev_job_permissions
+      # description: Mapped dev value for job_permissions.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_permissions in this file,
+      #     selecting confirmed project.domain case-insensitively, then dev.
+      #     Preserve the mapped YAML type.
+      job_permissions:
+        - group_name: lake_aeengsupport_rusr_inda
+          level: CAN_MANAGE
+        - service_principal_name: 2b501945-5940-4527-9cdd-51a07b77ceb7
+          level: CAN_MANAGE_RUN
+  stg:
+    variables:
+      # name: stg_job_runas_account
+      # description: Mapped stg value for job_runas_account.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_runas_account in this file,
+      #     selecting confirmed project.domain case-insensitively, then stg.
+      #     Preserve the mapped YAML type.
+      job_runas_account: "118bb443-4441-422d-b9b4-14cdc5ede028"
+      # name: stg_job_alert_emails
+      # description: Mapped stg value for job_alert_emails.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_alert_emails in this file,
+      #     selecting confirmed project.domain case-insensitively, then stg.
+      #     Preserve the mapped YAML type.
+      job_alert_emails:
+        - dda-support-stg@bank-banque-canada.ca
+        - DataLakeMonitoring-STG@bank-banque-canada.ca
+      # name: stg_job_permissions
+      # description: Mapped stg value for job_permissions.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_permissions in this file,
+      #     selecting confirmed project.domain case-insensitively, then stg.
+      #     Preserve the mapped YAML type.
+      job_permissions:
+        - group_name: lake_aeengsupport_rusr_inpa
+          level: CAN_MANAGE
+        - service_principal_name: 118bb443-4441-422d-b9b4-14cdc5ede028
+          level: CAN_MANAGE_RUN
+        - group_name: lake_dmengineer_rusr_inpa
+          level: CAN_MANAGE_RUN
+  prd:
+    variables:
+      # name: prd_job_runas_account
+      # description: Mapped prd value for job_runas_account.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_runas_account in this file,
+      #     selecting confirmed project.domain case-insensitively, then prd.
+      #     Preserve the mapped YAML type.
+      job_runas_account: "9a4da41a-bd6d-4773-99ce-2ba8b78f4d65"
+      # name: prd_job_alert_emails
+      # description: Mapped prd value for job_alert_emails.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_alert_emails in this file,
+      #     selecting confirmed project.domain case-insensitively, then prd.
+      #     Preserve the mapped YAML type.
+      job_alert_emails:
+        - dda-support@bank-banque-canada.ca
+        - DataLakeMonitoring-PRD@bank-banque-canada.ca
+      # name: prd_job_permissions
+      # description: Mapped prd value for job_permissions.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.job_permissions in this file,
+      #     selecting confirmed project.domain case-insensitively, then prd.
+      #     Preserve the mapped YAML type.
+      job_permissions:
+        - group_name: lake_aeengsupport_rusr_inpa
+          level: CAN_MANAGE
+        - service_principal_name: 9a4da41a-bd6d-4773-99ce-2ba8b78f4d65
+          level: CAN_MANAGE_RUN
+        - group_name: lake_dmengineer_rusr_inpa
+          level: CAN_MANAGE_RUN

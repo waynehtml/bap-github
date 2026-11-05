@@ -1,0 +1,390 @@
+common_base_parameters: &common_base_parameters
+  # Metadata
+  team: ${var.project.team}
+  domain: ${var.project.domain}
+  # SQL Warehouse ID
+  sql_warehouse_id: ${var.sql_warehouse_id}
+
+  # Support Ad Group
+  support_ad_group: ${var.support_ad_group}
+
+  # Bunlde
+  bundle_root: ${var.bundle_root}
+
+  # Date/Geo Settings
+  timezone: "${var.timezone}"
+  human_date_format: "${var.human_date_format}"
+  python_date_format: "${var.python_date_format}"
+  spark_date_format: "${var.spark_date_format}"
+
+  # Runtime
+  env: ${bundle.target}
+  dbk_runtime_version: "${var.dbk_runtime_version}"
+  job_name: "{{job.name}}"
+  job_id: "{{job.id}}"
+  job_run_id: "{{job.run_id}}"
+  job_trigger_type: "{{job.trigger.type}}"
+  workspace_url: "{{workspace.url}}"
+
+  # UC
+  catalog: "${var.catalog}"
+  config_root: "${var.config_root}"
+  habs_catalog: "${var.habs_catalog}"
+  fmbodw_catalog: "${var.fmbodw_catalog}"
+
+  # secret scope
+  secret_scope: "${var.secret_scope}"
+  oeds_secret_scope: "${var.oeds_secret_scope}"
+
+  # System Integration settings
+  azure_tenant_id: "${var.azure_tenant_id}"
+  
+  # Service SPN
+  service_spn_id_key: "${var.service_spn_id_key}"
+  service_spn_secret_key: "${var.service_spn_secret_key}"
+
+  # Internal ingestion serivce
+  internal_databricks_workspace_url: "${var.internal_databricks_workspace_url}"
+  internal_databricks_resource_id: "${var.internal_databricks_resource_id}"
+  internal_dis_job_id: "${var.internal_dis_job_id}"
+
+  # External ingestion serivce
+  external_databricks_workspace_url: "${var.external_databricks_workspace_url}"
+  external_databricks_resource_id: "${var.external_databricks_resource_id}"
+  external_dis_job_id: ""
+
+  # Email
+  email_service_url_key: "${var.email_service_url_key}"
+  email_mappings: ${var.email_mappings}
+
+  # Datamart
+  datamart_endpoints: "${var.datamart_endpoints}"
+
+  # Nexus
+  nexus_url: "${var.nexus_url}"
+  nexus_init_path: ${var.CLUSTER_INIT_PATH}
+
+common_job_cluster: &common_job_cluster
+  job_cluster_key: Job_cluster
+  new_cluster:
+    # Cluster policy and runtime should stay aligned with platform standards.
+    policy_id: ${var.job_cluster_policy_id}
+    apply_policy_default_values: true
+    spark_version: ${var.dbk_runtime_version}
+    autoscale:
+      min_workers: 1
+      max_workers: 2
+    init_scripts:
+      - volumes:
+          # Optional init script location mounted from Unity Catalog volumes.
+          destination: ${var.CLUSTER_INIT_PATH}/init.sh
+
+    spark_env_vars:
+      CLUSTER_ENV: ${bundle.target}
+
+high_performance_job_cluster: &high_performance_job_cluster
+  job_cluster_key: Job_cluster
+  new_cluster:
+    # Cluster policy and runtime should stay aligned with platform standards.
+    policy_id: ${var.job_high_performance_cluster_policy_id}
+    apply_policy_default_values: true
+    spark_version: ${var.dbk_runtime_version}
+    autoscale:
+      min_workers: 1
+      max_workers: 2
+    init_scripts:
+      - volumes:
+          # Optional init script location mounted from Unity Catalog volumes.
+          destination: ${var.CLUSTER_INIT_PATH}/init.sh
+
+    spark_env_vars:
+      CLUSTER_ENV: ${bundle.target}
+
+resources:
+  jobs:
+
+    fmbodw_migrate:
+      name: BAP-FMBODW-MIGRATE
+      # Short description to help operators understand the pipeline's purpose.
+      description: "This job is to migrate FMBODW BAP data into the UC."
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-FMBODW-MIGRATE"
+        type: "dataflow"
+        criticality: "standard"
+
+      run_as:
+        # Service principal used to run the job in each deployed environment.
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        # Queue overlapping triggers instead of rejecting them when capacity is busy.
+        enabled: true
+
+      # Limit how many runs of this job may execute at the same time.
+      max_concurrent_runs: 1
+
+      # Job-level parameters are exposed in the Jobs UI and can be overridden per run.
+      parameters:
+        # Per-run debug override for notebook logging/behavior.
+        - name: debug
+          default: ${var.debug}
+        - name: fmbodw_catalog
+          default: ${var.fmbodw_catalog}
+
+      email_notifications:
+        # Alert recipients for job failures.
+        on_failure: ${var.job_alert_emails}
+
+      # Shared job cluster used by notebook tasks in this sample workflow.
+      job_clusters:
+        - <<: *common_job_cluster
+
+      tasks:
+        - task_key: fmbodw_migrate
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../jobs/fmbodw_migrate/fmbodw_migrate_bap_tables.py
+            base_parameters:
+              <<: *common_base_parameters
+
+    clean_schema:
+      name: BAP-CLEAN-SCHEMA
+      # Short description to help operators understand the pipeline's purpose.
+      description: "This job is drop everything in the given schema"
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-CLEAN-SCHEMA"
+        type: "dataflow"
+        criticality: "standard"
+
+      run_as:
+        # Service principal used to run the job in each deployed environment.
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        # Queue overlapping triggers instead of rejecting them when capacity is busy.
+        enabled: true
+
+      # Limit how many runs of this job may execute at the same time.
+      max_concurrent_runs: 1
+
+      # Job-level parameters are exposed in the Jobs UI and can be overridden per run.
+      parameters:
+        # Per-run debug override for notebook logging/behavior.
+        - name: debug
+          default: ${var.debug}
+        - name: schema_to_be_clean
+          default: "curated_db"
+
+      email_notifications:
+        # Alert recipients for job failures.
+        on_failure: ${var.job_alert_emails}
+
+      # Shared job cluster used by notebook tasks in this sample workflow.
+      job_clusters:
+        - <<: *common_job_cluster
+
+      tasks:
+        - task_key: drop_schema_tables_views
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../jobs/clean_schema/clean_schema.py
+            base_parameters:
+              <<: *common_base_parameters
+              
+    habs_wp1:
+      # Display name that appears in the Databricks Jobs UI.
+      name: "BAP-HABS-WORKPACKAGE1"
+      # Short description to help operators understand the pipeline's purpose.
+      description: "HABS Workpackage 1 job will load tables from HABS databases , and transform to FACT and DIM tables for data analysis"
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        pipeline: "BAP-HABS-WORKPACKAGE1"
+        type: "dataflow"
+        criticality: "standard"
+
+      run_as:
+        # Service principal used to run the job in each deployed environment.
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        # Queue overlapping triggers instead of rejecting them when capacity is busy.
+        enabled: true
+      # Limit how many runs of this job may execute at the same time.
+      max_concurrent_runs: 1
+
+      # Job-level parameters are exposed in the Jobs UI and can be overridden per run.
+      parameters:
+        # Per-run debug override for notebook logging/behavior.
+        - name: debug
+          default: ${var.debug}
+        - name: build_raw
+          default: "1"
+        - name: build_dim
+          default: "1"
+        - name: build_fact
+          default: "1"
+        - name: habs_catalog
+          default: ${var.habs_catalog}
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+      # Shared job cluster used by notebook tasks in this workflow.
+      job_clusters:
+        - <<: *high_performance_job_cluster
+
+      tasks:
+        - task_key: habs_wp1
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../jobs/habs_wp1/habs_wp1_main.py
+            base_parameters:
+              <<: *common_base_parameters
+
+        - task_key: check_business_day
+          depends_on:
+            - task_key: habs_wp1
+          condition_task:
+            left: "{{tasks.habs_wp1.values.run_pipeline}}"
+            op: EQUAL_TO
+            right: "1"
+
+        - task_key: build_raw
+          job_cluster_key: Job_cluster
+          depends_on:    
+            - task_key: check_business_day
+              outcome: "true"            
+          notebook_task:
+            notebook_path: ../jobs/habs_wp1/10_raw/habs_build_raw_tables.py
+            base_parameters:
+              <<: *common_base_parameters
+              build_raw: "{{job.parameters.build_raw}}"
+
+        - task_key: build_dim
+          job_cluster_key: Job_cluster
+          depends_on:
+            - task_key: build_raw         
+          notebook_task:
+            notebook_path: ../jobs/habs_wp1/30_curated/31_dim/habs_build_dim_tables.py
+            base_parameters:
+              <<: *common_base_parameters
+              build_dim: "{{job.parameters.build_dim}}"
+
+        - task_key: build_fact
+          job_cluster_key: Job_cluster
+          depends_on:
+            - task_key: build_dim
+          notebook_task:
+            notebook_path: ../jobs/habs_wp1/30_curated/32_fact/habs_build_fact_tables.py
+            base_parameters:
+              <<: *common_base_parameters
+              build_fact: "{{job.parameters.build_fact}}"
+
+        - task_key: send_completion_email
+          job_cluster_key: Job_cluster
+          run_if: ALL_DONE
+          depends_on:
+            - task_key: build_fact
+          notebook_task:
+            notebook_path: ../jobs/habs_wp1/habs_wp1_completion_email.py
+            base_parameters:
+              <<: *common_base_parameters
+              run_pipeline: "{{tasks.habs_wp1.values.run_pipeline}}"
+              check_business_day_state: "{{tasks.check_business_day.result_state}}"
+              build_raw_state: "{{tasks.build_raw.result_state}}"
+              build_dim_state: "{{tasks.build_dim.result_state}}"
+              build_fact_state: "{{tasks.build_fact.result_state}}"
+      
+      schedule:
+        quartz_cron_expression: "0 0 21 ? * MON-FRI"
+        timezone_id: ${var.timezone}
+        pause_status: PAUSED
+
+targets:
+  dev:
+    resources:
+      jobs:
+        habs_wp1:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        fmbodw_migrate:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        clean_schema:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+  stg:
+    resources:
+      jobs:
+        habs_wp1:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        fmbodw_migrate:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        clean_schema:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE          
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+  prd:
+    resources:
+      jobs:
+        habs_wp1:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+          schedule:
+            pause_status: UNPAUSED
+
+        fmbodw_migrate:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - group_name: ${var.dm_ad_group}
+              level: CAN_MANAGE_RUN
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        clean_schema:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE

@@ -1,0 +1,35 @@
+{
+  "pipeline": "oeds-sample",
+  "tasks": [
+    {
+      "id": "download",
+      "handler": "oedis.handler.storage.download",
+      "params": {
+        "connection": {
+          "uri": "/Volumes/[[env]]_application_cat/oedisint_db/vol-oedisint-land/oedis/data/data/"
+        },
+        "requests": [
+          {
+            "include": ["*.csv"],
+            "recursive": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "upload",
+      "handler": "oedis.handler.storage.upload",
+      "params": {
+        "connection": {
+          "uri": "/Volumes/[[env]]_application_cat/oedisint_db/vol-oedisint-land/oedis/data/data1/"
+
+        },
+        "requests": [
+          {
+            "recursive": true
+          }
+        ]
+      }
+    }
+  ]
+}

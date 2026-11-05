@@ -1,0 +1,11 @@
+.databricks/
+build/
+dist/
+__pycache__/
+*.egg-info
+.venv/
+
+!.streamlit
+!.vscode
+
+/apps/main/.env

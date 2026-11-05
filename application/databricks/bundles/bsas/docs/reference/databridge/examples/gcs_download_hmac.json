@@ -1,0 +1,27 @@
+{
+  "id": "gcs-download-hmac-to-inbox",
+  "handler": "oedis.handler.gcs.download",
+  "params": {
+    "connection": {
+      "uri": "gs://my-bucket/dropzone",
+      "endpoint_url": "https://storage.googleapis.com",
+      "auth": {
+        "access_id": "{{ runtime.job_params.gcs_access_id }}",
+        "secret": "{{ keyvault(scope='my-secret-scope', key='st-paycangcs-accesskeysecret') }}"
+      }
+    },
+    "requests": [
+      {
+        "src_dir": "incoming",
+        "dst_dir": "raw/gcs",
+        "include": [
+          "*.csv"
+        ],
+        "exclude": [
+          "*.tmp"
+        ],
+        "recursive": true
+      }
+    ]
+  }
+}

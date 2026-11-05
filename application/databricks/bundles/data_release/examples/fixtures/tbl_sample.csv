@@ -1,0 +1,4 @@
+number,category,country,amount,minimum_amount
+100,retail,CA,25,20
+200,enterprise,US,18,15
+300,public,CA,12,10

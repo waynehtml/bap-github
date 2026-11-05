@@ -1,0 +1,191 @@
+# DVR Bundle
+resources:
+  jobs:
+    dvr_swift_pipeline:
+      name: "DVR Swift Pipeline"
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+      max_concurrent_runs: 1
+      # Per-target job ACLs from databricks.yml, including CAN_MANAGE_RUN for
+      # the shared app account so the upload app can start this job.
+      permissions: ${var.job_permissions}
+      # Run as the environment's services account (DataForge standard), which is
+      # allowed to use the job cluster policy. Without this the job runs as the
+      # deploy account, which is not.
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+      email_notifications:
+        on_success: ${var.job_alert_emails}
+        on_failure: ${var.job_alert_emails}
+      parameters:
+        - name: release_version
+          default: "release-2.0.0"
+        - name: catalog
+          default: ${var.catalog}
+        - name: land_root
+          default: ${var.land_root}
+        - name: habs_catalog
+          default: ${var.habs_catalog}
+        - name: habs_source_table
+          default: ${var.habs_source_table}
+        - name: swift_volume_root
+          default: ${var.swift_volume_root}
+        - name: reports_root
+          default: ${var.reports_root}
+        - name: legacy_r_drive_path
+          default: ${var.legacy_r_drive_path}
+        - name: oeds_secret_scope
+          default: ${var.oeds_secret_scope}
+        - name: email_service_url_key
+          default: ${var.email_service_url_key}
+        - name: email_mappings
+          default: ${var.email_mappings}
+      # No schedule: the Swift File Upload app starts this job right after ARM uploads a file.
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster: ${var.compute_classic_local_cluster}
+
+      tasks:
+        - task_key: validate_swift_files
+          description: Validate uploaded SWIFT DVR Excel files from inbox
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr-pipeline/01_validate_swift_files.py
+            source: WORKSPACE
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              land_root: "{{job.parameters.land_root}}"
+              swift_volume_root: "{{job.parameters.swift_volume_root}}"
+          timeout_seconds: 1800
+
+        # Gate: when the inbox was empty, stop after validation. The remaining
+        # steps show as Excluded, and nothing is loaded, reconciled, reported or
+        # emailed. If validation fails, this fails too and notify still alerts.
+        - task_key: has_files
+          description: Continue only when validation found files in the inbox
+          depends_on:
+            - task_key: validate_swift_files
+          condition_task:
+            op: GREATER_THAN
+            left: "{{tasks.validate_swift_files.values.file_count}}"
+            right: "0"
+
+        - task_key: copy_legacy_r_drive
+          description: Copy validated SWIFT DVR files to the legacy R drive via SMB
+          depends_on:
+            - task_key: has_files
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr-pipeline/02b_copy_legacy_r_drive.ipynb
+            source: WORKSPACE
+            # DataBridge connection settings are resolved from Key Vault by common.py (_ctx).
+            base_parameters:
+              legacy_r_drive_path: "{{job.parameters.legacy_r_drive_path}}"
+              # Environment-specific settings read by common.py (defaults there are dev).
+              env: ${bundle.target}
+              workspace_url: "{{workspace.url}}"
+              raw_root: "${var.raw_root}"
+              service_spn_id_key: "${var.service_spn_id_key}"
+              service_spn_secrete_key: "${var.service_spn_secrete_key}"
+              dis_av_root: "${var.dis_av_root}"
+              dis_oedisext_client_id_key: "${var.dis_oedisext_client_id_key}"
+              dis_oedisext_client_secret_key: "${var.dis_oedisext_client_secret_key}"
+              valid_files_json: "{{tasks.validate_swift_files.values.valid_files_json}}"
+          timeout_seconds: 1800
+
+        - task_key: parse_load_swift
+          description: Parse valid DVR Excel files and load into SWIFT_MESSAGE_FACT
+          # The R: drive copy is a side output for the legacy process; it must not
+          # block loading, reconciliation or reports.
+          depends_on:
+            - task_key: has_files
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr-pipeline/02_parse_load_swift.py
+            source: WORKSPACE
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              land_root: "{{job.parameters.land_root}}"
+              swift_volume_root: "{{job.parameters.swift_volume_root}}"
+              valid_files_json: "{{tasks.validate_swift_files.values.valid_files_json}}"
+          timeout_seconds: 1800
+
+        - task_key: load_habs_message
+          description: Extract HABS data and load into HABS_MESSAGE_FACT
+          depends_on:
+            - task_key: has_files
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr-pipeline/03_load_habs_message.py
+            source: WORKSPACE
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              habs_catalog: "{{job.parameters.habs_catalog}}"
+              habs_source_table: "{{job.parameters.habs_source_table}}"
+              # No report_date: the run date is not the SWIFT business date, so
+              # load the default recent HABS window and let reconcile scope it.
+          timeout_seconds: 3600
+
+        - task_key: reconcile
+          description: Three-way SWIFT vs HABS reconciliation
+          depends_on:
+            - task_key: parse_load_swift
+            - task_key: load_habs_message
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr-pipeline/04_reconcile.py
+            source: WORKSPACE
+            # Scoped to this run's files via the validate task's valid_files_json.
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+          timeout_seconds: 1800
+
+        - task_key: notify
+          description: Send email notification with reconciliation results
+          depends_on:
+            - task_key: reconcile
+            - task_key: generate_reports
+            - task_key: copy_legacy_r_drive
+          run_if: ALL_DONE
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr-pipeline/05_notify.py
+            source: WORKSPACE
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              oeds_secret_scope: "{{job.parameters.oeds_secret_scope}}"
+              email_service_url_key: "{{job.parameters.email_service_url_key}}"
+              email_mappings: "{{job.parameters.email_mappings}}"
+              # Environment-specific settings read by common.py (defaults there are dev).
+              env: ${bundle.target}
+              workspace_url: "{{workspace.url}}"
+              raw_root: "${var.raw_root}"
+              databridge_email_tenant_id_key: "${var.databridge_email_tenant_id_key}"
+              databridge_email_client_id_key: "${var.databridge_email_client_id_key}"
+              databridge_email_client_secret_key: "${var.databridge_email_client_secret_key}"
+              databridge_email_sender_account: "${var.databridge_email_sender_account}"
+              # notify reads upstream results itself with taskValues.get, so it
+              # still runs (and alerts) when validate or reconcile did not finish.
+              # Do not pass {{tasks.*.values.*}} here: a missing value fails the task.
+          timeout_seconds: 600
+
+        - task_key: generate_reports
+          description: Write retained CSV and HTML reconciliation reports
+          depends_on:
+            - task_key: reconcile
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr-pipeline/07_generate_reports.py
+            source: WORKSPACE
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              reports_root: "{{job.parameters.reports_root}}"
+              report_date: "{{tasks.validate_swift_files.values.report_date}}"
+              valid_files_json: "{{tasks.validate_swift_files.values.valid_files_json}}"
+          timeout_seconds: 1800
+
+    # The 2PM missing-file check (06_file_check_2pm) is not deployed; re-add a job here if needed.

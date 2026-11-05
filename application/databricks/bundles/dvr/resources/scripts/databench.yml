@@ -1,0 +1,25 @@
+scripts:
+  # Publish all DataBench configuration files, including the placeholder README,
+  # directly under the target's databench_root/config, preserving relative paths.
+  # Overwrite matching files and retain destination-only files. The Volume must
+  # already exist and the deployment identity must have write access.
+  # Skip a missing source; warn on any copy failure and let deployment continue.
+  # No destination check, retry, or rollback is performed; partial copies may remain.
+  # dbfs: addresses the remote Volume through the CLI; this is not a local copy.
+  deploy_databench_config:
+    env:
+      DATABENCH_ROOT: ${var.databench_root}
+    content: |
+      set -euo pipefail
+      source_dir="src/oeds/domain/config/databench"
+      if [ ! -d "$source_dir" ]; then
+        echo "Skipping DataBench configuration copy: source directory is absent."
+        exit 0
+      fi
+      databench_root="$(printf '%s' "$DATABENCH_ROOT" | sed 's:/*$::')"
+      if ! databricks fs cp \
+        "$source_dir" \
+        "dbfs:$databench_root/config" \
+        --recursive --overwrite; then
+        echo "##vso[task.logissue type=warning]DataBench configuration copy failed; continuing deployment."
+      fi

@@ -1,0 +1,60 @@
+{
+  "id": "http_request_oauth_basic_multipart",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "oauth2_client_credentials",
+        "token_url": "https://auth.vendor.example.com/token",
+        "client_id": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-id\") }}",
+        "client_secret": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-secret\") }}",
+        "client_auth_method": "basic",
+        "scope": "reports.read reports.write",
+        "token_headers": {
+          "Accept": "application/json"
+        }
+      }
+    },
+    "requests": [
+      {
+        "id": "upload_report",
+        "method": "POST",
+        "path": "uploads",
+        "body": {
+          "type": "multipart",
+          "fields": {
+            "reportDate": "{{ runtime.rundate }}"
+          },
+          "files": [
+            {
+              "name": "file",
+              "path": "prepared/report.csv",
+              "content_type": "text/csv"
+            }
+          ]
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201
+          ],
+          "save_to": "receipts/oauth-basic-upload.json"
+        }
+      },
+      {
+        "id": "read_report_metadata",
+        "method": "GET",
+        "path": "reports/{{ runtime.rundate }}/metadata",
+        "response": {
+          "expected_status": 200,
+          "save_to": "raw/oauth-basic-metadata.json"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+resources:
+  apps:
+    MAIN:
+      name: "${bundle.name}-app"
+      source_code_path: ../../apps/main
+      description: "Project application"
+
+      resources:
+        - name: spn-tenantid
+          secret:
+            scope: "${var.app_secrete_scope}"
+            key: "{{app_spn_tenantid_key}}"
+            permission: READ
+        - name: spn-id
+          secret:
+            scope: "${var.app_secrete_scope}"
+            key: "{{app_spn_id_key}}"
+            permission: READ
+        - name: spn-secret
+          secret:
+            scope: "${var.app_secrete_scope}"
+            key: "{{app_spn_secret_key}}"
+            permission: READ
+        - name: azure-workspace-resource-id
+          secret:
+            scope: "${var.oeds_secrete_scope}"
+            key: "${var.internal_databricks_resource_id_key}"
+            permission: READ
+        - name: sql-warehouse-id
+          secret:
+            scope: "${var.oeds_secrete_scope}"
+            key: "${var.sql_warehouse_serverless_large_id_key}"
+            permission: READ
+
+      config:
+        command: ["python", "-m", "streamlit", "run", "app.py"]
+        env:
+          - name: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+            value: "false"
+          - name: SPN_TENANTID
+            value_from: spn-tenantid
+          - name: SPN_ID
+            value_from: spn-id
+          - name: SPN_SECRET
+            value_from: spn-secret
+          - name: AZURE_WORKSPACE_RESOURCE_ID
+            value_from: azure-workspace-resource-id
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: sql-warehouse-id
+          - name: ENV_NAME
+            value: "${bundle.target}"
+          - name: UC_CATALOG_NAME
+            value: "${var.catalog}"
+          # - name: JOB_ID
+          #   value: "${resources.jobs.DATAFLOW.id}"
+
+targets:
+  dev:
+    resources:
+      apps:
+        MAIN:
+          permissions:
+            - group_name: lake_aeengsupport_rusr_inda
+              level: CAN_MANAGE
+  stg:
+    resources:
+      apps:
+        MAIN:
+          permissions:
+            - group_name: lake_aeengsupport_rusr_inpa
+              level: CAN_MANAGE
+  prd:
+    resources:
+      apps:
+        MAIN:
+          permissions:
+            - group_name: lake_aeengsupport_rusr_inpa
+              level: CAN_MANAGE

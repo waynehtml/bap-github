@@ -1,0 +1,335 @@
+# App SPN secret key names selected automatically by project.domain and target.
+# Replace REPLACE_ME values with existing key names before enabling app setup.
+# app_spn_keys:
+#   FMD:
+#     dev:
+#       app_spn_tenantid_key: "REPLACE_ME_FMD_DEV_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_FMD_DEV_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_FMD_DEV_SECRET_KEY"
+#     stg:
+#       app_spn_tenantid_key: "REPLACE_ME_FMD_STG_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_FMD_STG_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_FMD_STG_SECRET_KEY"
+#     prd:
+#       app_spn_tenantid_key: "REPLACE_ME_FMD_PRD_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_FMD_PRD_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_FMD_PRD_SECRET_KEY"
+#   CUR:
+#     dev:
+#       app_spn_tenantid_key: "REPLACE_ME_CUR_DEV_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_CUR_DEV_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_CUR_DEV_SECRET_KEY"
+#     stg:
+#       app_spn_tenantid_key: "REPLACE_ME_CUR_STG_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_CUR_STG_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_CUR_STG_SECRET_KEY"
+#     prd:
+#       app_spn_tenantid_key: "REPLACE_ME_CUR_PRD_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_CUR_PRD_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_CUR_PRD_SECRET_KEY"
+#   BAP:
+#     dev:
+#       app_spn_tenantid_key: "REPLACE_ME_BAP_DEV_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_BAP_DEV_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_BAP_DEV_SECRET_KEY"
+#     stg:
+#       app_spn_tenantid_key: "REPLACE_ME_BAP_STG_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_BAP_STG_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_BAP_STG_SECRET_KEY"
+#     prd:
+#       app_spn_tenantid_key: "REPLACE_ME_BAP_PRD_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_BAP_PRD_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_BAP_PRD_SECRET_KEY"
+#   SUP:
+#     dev:
+#       app_spn_tenantid_key: "REPLACE_ME_SUP_DEV_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_SUP_DEV_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_SUP_DEV_SECRET_KEY"
+#     stg:
+#       app_spn_tenantid_key: "REPLACE_ME_SUP_STG_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_SUP_STG_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_SUP_STG_SECRET_KEY"
+#     prd:
+#       app_spn_tenantid_key: "REPLACE_ME_SUP_PRD_TENANTID_KEY"
+#       app_spn_id_key: "REPLACE_ME_SUP_PRD_ID_KEY"
+#       app_spn_secret_key: "REPLACE_ME_SUP_PRD_SECRET_KEY"
+#   OEDS:
+#     dev:
+#       app_spn_tenantid_key: app-2b501945-5940-4527-9cdd-51a07b77ceb7-tenantid
+#       app_spn_id_key: app-2b501945-5940-4527-9cdd-51a07b77ceb7-appid
+#       app_spn_secret_key: app-2b501945-5940-4527-9cdd-51a07b77ceb7-secret
+#     stg:
+#       app_spn_tenantid_key: app-28d3da8e-87ab-4c6d-a82d-86fc3b17ccb2-tenantid
+#       app_spn_id_key: app-28d3da8e-87ab-4c6d-a82d-86fc3b17ccb2-appid
+#       app_spn_secret_key: app-28d3da8e-87ab-4c6d-a82d-86fc3b17ccb2-secret
+#     prd:
+#       app_spn_tenantid_key: app-28d3da8e-87ab-4c6d-a82d-86fc3b17ccb2-tenantid
+#       app_spn_id_key: app-28d3da8e-87ab-4c6d-a82d-86fc3b17ccb2-appid
+#       app_spn_secret_key: app-28d3da8e-87ab-4c6d-a82d-86fc3b17ccb2-secret
+
+variables:
+  # name: app_name
+  # description: Full lowercase Databricks App name, 2-30 letters, digits, or hyphens.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.domain and the user-provided app name using
+  #     <domain>-<app name>, lowercasing and replacing whitespace with hyphens.
+  #   input_example: "fmd-client-portal"
+  app_name:
+    default: "{{app_name}}"
+  # name: app_description
+  # description: Lowercase description of the Databricks App.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.domain and the user-provided app name using
+  #     <domain> <app name> app, lowercasing and replacing app-name hyphens
+  #     and whitespace runs with single spaces.
+  #   input_example: "fmd client portal app"
+  app_description:
+    default: "{{app_description}}"
+  app_spn_tenantid_key:
+    description: Secret key name for the MAIN app's SPN tenant ID.
+  app_spn_id_key:
+    description: Secret key name for the MAIN app's SPN client ID.
+  app_spn_secret_key:
+    description: Secret key name for the MAIN app's SPN client secret.
+
+resources:
+  apps:
+    MAIN:
+      name: ${var.app_name}
+      source_code_path: ../../apps/main
+      description: ${var.app_description}
+
+      # Named secret bindings available to this app. Bundle variables select the
+      # scope and secret key name for the target; they do not contain secret values.
+      # The config.env entries below reference these resource names via value_from.
+      resources:
+        - name: spn-tenantid
+          secret:
+            scope: "${var.app_secrete_scope}"
+            key: "${var.app_spn_tenantid_key}"
+            permission: READ
+        - name: spn-id
+          secret:
+            scope: "${var.app_secrete_scope}"
+            key: "${var.app_spn_id_key}"
+            permission: READ
+        - name: spn-secret
+          secret:
+            scope: "${var.app_secrete_scope}"
+            key: "${var.app_spn_secret_key}"
+            permission: READ
+
+      # Databricks injects config.env entries when the app starts; Python reads
+      # them through os.environ. Choose value or value_from for each entry:
+      # - value: a literal or bundle substitution; no app resource binding needed.
+      # - value_from: the name of a resource in this app's resources list.
+      # For secret bindings, value_from injects the secret value. Using
+      # value: ${var.app_spn_tenantid_key} would inject only the secret key name.
+      config:
+        command: ["python", "-m", "streamlit", "run", "app.py"]
+        env:
+          - name: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+            value: "false"
+          - name: SPN_TENANTID
+            value_from: spn-tenantid
+          - name: SPN_ID
+            value_from: spn-id
+          - name: SPN_SECRET
+            value_from: spn-secret
+          - name: AZURE_WORKSPACE_RESOURCE_ID
+            value: "${var.internal_databricks_resource_id}"
+          - name: DATABRICKS_WAREHOUSE_ID
+            value: "${var.sql_warehouse_serverless_large_id}"
+          - name: ENV_NAME
+            value: "${bundle.target}"
+          - name: UC_CATALOG_NAME
+            value: "${var.catalog}"
+
+targets:
+  dev:
+    variables:
+      # name: dev_app_spn_tenantid_key
+      # description: Existing dev secret key name for the app SPN tenant ID.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].dev.app_spn_tenantid_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_tenantid_key: "{{dev_app_spn_tenantid_key}}"
+      # name: dev_app_spn_id_key
+      # description: Existing dev secret key name for the app SPN client ID.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].dev.app_spn_id_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_id_key: "{{dev_app_spn_id_key}}"
+      # name: dev_app_spn_secret_key
+      # description: Existing dev secret key name for the app SPN client secret.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].dev.app_spn_secret_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_secret_key: "{{dev_app_spn_secret_key}}"
+    resources:
+      apps:
+        MAIN:
+          permissions:
+            - group_name: lake_aeengsupport_rusr_inda
+              level: CAN_MANAGE
+  stg:
+    variables:
+      # name: stg_app_spn_tenantid_key
+      # description: Existing stg secret key name for the app SPN tenant ID.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].stg.app_spn_tenantid_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_tenantid_key: "{{stg_app_spn_tenantid_key}}"
+      # name: stg_app_spn_id_key
+      # description: Existing stg secret key name for the app SPN client ID.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].stg.app_spn_id_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_id_key: "{{stg_app_spn_id_key}}"
+      # name: stg_app_spn_secret_key
+      # description: Existing stg secret key name for the app SPN client secret.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].stg.app_spn_secret_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_secret_key: "{{stg_app_spn_secret_key}}"
+    resources:
+      apps:
+        MAIN:
+          permissions:
+            - group_name: lake_aeengsupport_rusr_inpa
+              level: CAN_MANAGE
+  prd:
+    variables:
+      # name: prd_app_spn_tenantid_key
+      # description: Existing prd secret key name for the app SPN tenant ID.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].prd.app_spn_tenantid_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_tenantid_key: "{{prd_app_spn_tenantid_key}}"
+      # name: prd_app_spn_id_key
+      # description: Existing prd secret key name for the app SPN client ID.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].prd.app_spn_id_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_id_key: "{{prd_app_spn_id_key}}"
+      # name: prd_app_spn_secret_key
+      # description: Existing prd secret key name for the app SPN client secret.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From app_spn_keys[project.domain].prd.app_spn_secret_key
+      #     in this file, matching the confirmed domain case-insensitively.
+      app_spn_secret_key: "{{prd_app_spn_secret_key}}"
+    resources:
+      apps:
+        MAIN:
+          permissions:
+            - group_name: lake_aeengsupport_rusr_inpa
+              level: CAN_MANAGE
+
+scripts:
+  # Selected before deployment in all targets; no configured apps is a no-op.
+  # Requires scope MANAGE and visibility of the bundle apps. READ replaces the
+  # app principal's explicit ACL; no ACL lookup or secret value retrieval occurs.
+  restore_app_secret_access:
+    env:
+      DEPLOY_TARGET: ${bundle.target}
+      APP_SECRET_SCOPE: ${var.app_secrete_scope}
+    content: |
+      python - <<'PY'
+      import json
+      import os
+      import subprocess
+
+      target = os.environ["DEPLOY_TARGET"].strip()
+      scope = os.environ["APP_SECRET_SCOPE"].strip()
+      if not target or not scope:
+          raise ValueError("DEPLOY_TARGET and APP_SECRET_SCOPE must be nonblank")
+
+      bundle = json.loads(subprocess.check_output(
+          ["databricks", "bundle", "validate", "--target", target,
+           "--output", "json"], text=True,
+      ))
+      bundle_apps = bundle.get("resources", {}).get("apps", {})
+      if not bundle_apps:
+          print("No apps configured in this bundle; skipping app secret access repair.")
+          raise SystemExit(0)
+
+      # The CLI consumes all list pages before this successful result is used.
+      workspace_apps = json.loads(subprocess.check_output(
+          ["databricks", "apps", "list", "--target", target,
+           "--output", "json"], text=True,
+      ))
+      if not isinstance(workspace_apps, list):
+          raise ValueError("Expected a JSON array from databricks apps list")
+      apps_by_name = {app["name"]: app for app in workspace_apps}
+
+      for resource_key, definition in sorted(bundle_apps.items()):
+          app_name = definition.get("name")
+          if not isinstance(app_name, str) or not app_name.strip():
+              raise ValueError(f"Bundle app {resource_key} has no resolved name")
+          app = apps_by_name.get(app_name)
+          if app is None:
+              print(f"Skipping {app_name}: absent from workspace app inventory.",
+                    flush=True)
+              continue
+          principal = app.get("service_principal_client_id")
+          if not isinstance(principal, str) or not principal.strip():
+              raise ValueError(f"App {app_name} has no service principal client ID")
+          subprocess.run(
+              ["databricks", "secrets", "put-acl", scope, principal, "READ",
+               "--target", target], check=True,
+          )
+          print(f"Restored READ on {scope} for app {app_name}.", flush=True)
+      PY
+
+  # Submit starts/restarts after deployment; CLI success does not verify app health.
+  start_app:
+    env:
+      DEPLOY_TARGET: ${bundle.target}
+    content: |
+      python - <<'PY'
+      import json
+      import os
+      import subprocess
+
+      target = os.environ["DEPLOY_TARGET"].strip()
+      if not target:
+          raise ValueError("DEPLOY_TARGET must be nonblank")
+
+      bundle = json.loads(subprocess.check_output(
+          ["databricks", "bundle", "validate", "--target", target,
+           "--output", "json"], text=True,
+      ))
+      bundle_apps = bundle.get("resources", {}).get("apps", {})
+      if not bundle_apps:
+          print("No apps configured in this bundle; skipping app startup.")
+          raise SystemExit(0)
+
+      for resource_key in sorted(bundle_apps):
+          print(f"Requesting start/restart for app {resource_key}.", flush=True)
+          subprocess.run(
+              ["databricks", "bundle", "run", resource_key,
+               "--target", target], check=True,
+          )
+      PY

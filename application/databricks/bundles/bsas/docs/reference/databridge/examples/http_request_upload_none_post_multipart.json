@@ -1,0 +1,38 @@
+{
+  "id": "http_request_multipart",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60
+    },
+    "requests": [
+      {
+        "id": "upload_report",
+        "method": "POST",
+        "path": "uploads",
+        "body": {
+          "type": "multipart",
+          "fields": {
+            "reportDate": "{{ runtime.rundate }}"
+          },
+          "files": [
+            {
+              "name": "file",
+              "path": "prepared/report.csv",
+              "filename": "report.csv",
+              "content_type": "text/csv"
+            }
+          ]
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201
+          ],
+          "save_to": "receipts/upload.json"
+        }
+      }
+    ]
+  }
+}

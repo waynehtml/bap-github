@@ -1,0 +1,8 @@
+name: databriks-app-3.11
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - streamlit==1.38.0
+      - databricks-sdk==0.33.0
+      - databricks-sql-connector==3.4.0

@@ -1,0 +1,42 @@
+{
+  "id": "http_request_download_oauth_form_post",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 120,
+      "auth": {
+        "type": "oauth2_client_credentials",
+        "token_url": "https://auth.vendor.example.com/token",
+        "client_id": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-id\") }}",
+        "client_secret": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-secret\") }}",
+        "client_auth_method": "basic",
+        "scope": "reports.read",
+        "token_headers": {
+          "Accept": "application/json"
+        }
+      }
+    },
+    "requests": [
+      {
+        "id": "download_statement",
+        "method": "POST",
+        "path": "statements/export",
+        "headers": {
+          "Accept": "application/pdf"
+        },
+        "body": {
+          "type": "form",
+          "value": {
+            "statementDate": "{{ runtime.rundate }}",
+            "format": "pdf"
+          }
+        },
+        "response": {
+          "expected_status": 200,
+          "save_to": "raw/oauth-statement_{{ runtime.rundate }}.pdf"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+# Copy this generic wrapper into a domain repository and register it as a pipeline.
+# The domain repository must provide matching files under /pipelines/variables/.
+
+# Dependent repository variable templates:
+# - /pipelines/variables/common.yaml:
+#   - agent_pool_name
+#   - agent_image
+#   - config_container
+# - /pipelines/variables/dev.yaml, /pipelines/variables/stg.yaml, and /pipelines/variables/prd.yaml:
+#   - service_connection
+#   - storage_land01
+
+trigger: none
+pr: none
+
+parameters:
+  - name: environment
+    displayName: Target Environment
+    type: string
+    default: dev
+    values:
+      - dev
+      - stg
+      - prd
+
+  - name: config_folder
+    displayName: Config Folder
+    type: string
+    default: application/config
+
+variables:
+  - template: /pipelines/variables/common.yaml
+
+  - ${{ if eq(parameters.environment, 'dev') }}:
+      - template: /pipelines/variables/dev.yaml
+  - ${{ if eq(parameters.environment, 'stg') }}:
+      - template: /pipelines/variables/stg.yaml
+  - ${{ if eq(parameters.environment, 'prd') }}:
+      - template: /pipelines/variables/prd.yaml
+
+pool:
+  name: $(agent_pool_name)
+  demands:
+    - ImageOverride -equals $(agent_image)
+
+resources:
+  repositories:
+    - repository: lake_devops
+      type: git
+      name: lake-devops/lake-devops
+      ref: refs/heads/main
+
+extends:
+  template: pipelines/templates/oeds-config-deploy-v2-template.yaml@lake_devops
+  parameters:
+    environment: ${{ parameters.environment }}
+    config_folder: ${{ parameters.config_folder }}
+    config_container: $(config_container)
+    service_connection: $(service_connection)
+    storage_land01: $(storage_land01)

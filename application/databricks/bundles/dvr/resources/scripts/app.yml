@@ -1,0 +1,86 @@
+scripts:
+  # Selected before deployment in all targets; no configured apps is a no-op.
+  # Requires scope MANAGE and visibility of the bundle apps. READ replaces the
+  # app principal's explicit ACL; no ACL lookup or secret value retrieval occurs.
+  restore_app_secret_access:
+    env:
+      DEPLOY_TARGET: ${bundle.target}
+      APP_SECRET_SCOPE: ${var.app_secrete_scope}
+    content: |
+      python - <<'PY'
+      import json
+      import os
+      import subprocess
+
+      target = os.environ["DEPLOY_TARGET"].strip()
+      scope = os.environ["APP_SECRET_SCOPE"].strip()
+      if not target or not scope:
+          raise ValueError("DEPLOY_TARGET and APP_SECRET_SCOPE must be nonblank")
+
+      bundle = json.loads(subprocess.check_output(
+          ["databricks", "bundle", "validate", "--target", target,
+           "--output", "json"], text=True,
+      ))
+      bundle_apps = bundle.get("resources", {}).get("apps", {})
+      if not bundle_apps:
+          print("No apps configured in this bundle; skipping app secret access repair.")
+          raise SystemExit(0)
+
+      # The CLI consumes all list pages before this successful result is used.
+      workspace_apps = json.loads(subprocess.check_output(
+          ["databricks", "apps", "list", "--target", target,
+           "--output", "json"], text=True,
+      ))
+      if not isinstance(workspace_apps, list):
+          raise ValueError("Expected a JSON array from databricks apps list")
+      apps_by_name = {app["name"]: app for app in workspace_apps}
+
+      for resource_key, definition in sorted(bundle_apps.items()):
+          app_name = definition.get("name")
+          if not isinstance(app_name, str) or not app_name.strip():
+              raise ValueError(f"Bundle app {resource_key} has no resolved name")
+          app = apps_by_name.get(app_name)
+          if app is None:
+              print(f"Skipping {app_name}: absent from workspace app inventory.",
+                    flush=True)
+              continue
+          principal = app.get("service_principal_client_id")
+          if not isinstance(principal, str) or not principal.strip():
+              raise ValueError(f"App {app_name} has no service principal client ID")
+          subprocess.run(
+              ["databricks", "secrets", "put-acl", scope, principal, "READ",
+               "--target", target], check=True,
+          )
+          print(f"Restored READ on {scope} for app {app_name}.", flush=True)
+      PY
+
+  # Submit starts/restarts after deployment; CLI success does not verify app health.
+  start_app:
+    env:
+      DEPLOY_TARGET: ${bundle.target}
+    content: |
+      python - <<'PY'
+      import json
+      import os
+      import subprocess
+
+      target = os.environ["DEPLOY_TARGET"].strip()
+      if not target:
+          raise ValueError("DEPLOY_TARGET must be nonblank")
+
+      bundle = json.loads(subprocess.check_output(
+          ["databricks", "bundle", "validate", "--target", target,
+           "--output", "json"], text=True,
+      ))
+      bundle_apps = bundle.get("resources", {}).get("apps", {})
+      if not bundle_apps:
+          print("No apps configured in this bundle; skipping app startup.")
+          raise SystemExit(0)
+
+      for resource_key in sorted(bundle_apps):
+          print(f"Requesting start/restart for app {resource_key}.", flush=True)
+          subprocess.run(
+              ["databricks", "bundle", "run", resource_key,
+               "--target", target], check=True,
+          )
+      PY

@@ -1,0 +1,4 @@
+template:
+  name: dataforge
+  created_from_version: "1.20.0"
+  last_applied_version: "1.20.0"

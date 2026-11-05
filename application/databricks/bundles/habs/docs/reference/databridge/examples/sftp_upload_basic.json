@@ -1,0 +1,42 @@
+{
+  "id": "upload",
+  "handler": "oedis.handler.sftp.upload",
+  "params": {
+    "connection": {
+      "hostname": "sftp.data.example.com",
+      "port": 22,
+      "keepalive_sec": 45,
+      "max_connections": 4,
+      "root_dir": "/drop",
+      "auth": {
+        "type": "basic",
+        "username": "svc_writer",
+        "password": "{{keyvault(scope=dis-secrets, key=sftp-password)}}"
+      },
+      "host_verification": {
+        "mode": "fingerprints",
+        "fingerprints": [
+          "sha256:EXAMPLEFINGERPRINTBASE64"
+        ]
+      },
+      "fault_tolerant": {
+        "retries": 3,
+        "retry_interval_sec": 15
+      }
+    },
+    "requests": [
+      {
+        "src_dir": "outbound/daily",
+        "dst_dir": "partner/inbound",
+        "include": [
+          "*.csv"
+        ],
+        "exclude": [
+          "*_tmp.csv"
+        ],
+        "recursive": true,
+        "delete_source_file": false
+      }
+    ]
+  }
+}

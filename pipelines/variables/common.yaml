@@ -1,0 +1,33 @@
+# Non-secret configuration shared by all deployment environments.
+variables:
+  - name: agent_image
+    value: 'ubuntu-24.04'
+    readonly: true
+
+  - name: agent_pool_name
+    value: 'azdv-dagp-cac-prd02'
+    readonly: true
+
+  - name: config_container
+    value: 'config-bap'
+    readonly: true
+
+  - name: databricks_cli_version
+    value: '1.17.0'
+    readonly: true
+
+  - name: databricks_source_folder
+    value: 'application/databricks/bap'
+    readonly: true
+
+  - name: databricks_destination_path
+    value: '/bap'
+    readonly: true
+
+  - name: databricks_nexus_url
+    value: 'https://fcp4lnexuap01.bocad.bank-banque-canada.ca/nexus/repository/appbuilding/databrickscli/$(databricks_cli_version)/databricks'
+    readonly: true
+
+  - name: databricks_resource_id
+    value: '2ff814a6-3304-4ab8-85cb-cd0e6f879c1d'
+    readonly: true

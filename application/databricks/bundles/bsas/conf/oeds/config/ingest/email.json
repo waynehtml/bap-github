@@ -1,0 +1,45 @@
+{
+  "pipeline": "databridge_email",
+  "tasks": [
+    [% if src_dir %]
+    {
+      "id": "download_attachments",
+      "handler": "oedis.handler.storage.download",
+      "params": {
+        "connection": {
+          "uri": [[ src_dir | tojson ]]
+        },
+        "requests": [{"include": ["*"]}]
+      }
+    },
+    [% endif %]
+    {
+      "id": "send_email",
+      "handler": "oedis.handler.email.send",
+      "params": {
+        "connection": {
+          "auth": {
+            "tenant_id": "{{ keyvault(scope='[[ secret_scope ]]', key='[[ tenant_id_key ]]') }}",
+            "client_id": "{{ keyvault(scope='[[ secret_scope ]]', key='[[ client_id_key ]]') }}",
+            "client_secret": "{{ keyvault(scope='[[ secret_scope ]]', key='[[ client_secret_key ]]') }}"
+          }
+        },
+        "message": {
+          "from": [[ sender_literal | tojson ]],
+          "to": [[ recipient_literals | tojson ]],
+          "subject": [[ subject_literal | tojson ]],
+          "body": {
+            "format": "html",
+            "content": [[ body_literal | tojson ]]
+          },
+          "attachments": [
+            [% if src_dir %]
+            {"include": ["*"], "exclude": [".*.crc"]}
+            [% endif %]
+          ]
+        },
+        "max_total_attachment_bytes": [[ max_total_attachment_bytes | tojson ]]
+      }
+    }
+  ]
+}

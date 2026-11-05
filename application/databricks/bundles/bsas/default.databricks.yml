@@ -1,0 +1,721 @@
+bundle:
+  # name: bundle_name
+  # description: Logical Databricks bundle name used for deployment metadata.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: Use the project root folder name as the default.
+  #   input_example: "corra"
+  name: "{{bundle_name}}"
+
+workspace:
+  # Workspace folder where bundle is deployed. This is where the bundle state and synced source files are stored.
+  # The default value below is the recommended location for bundles.
+  root_path: /Workspace/${var.project.tag}/.bundle/${bundle.name}
+
+sync:
+  # Exclude local secrets, Azure DevOps files, and disabled app assets.
+  # App Setup removes the two app exclusions when the app is enabled.
+  exclude:
+    - .azuredevops/**
+    - apps/main/.env
+    - apps/**
+    - resources/apps/**
+
+include:
+  # General: always include shared deployment hooks and DataBench publishing.
+  - resources/script.yml
+
+  # Job: add entries only when Job Setup is enabled.
+  # Include common.yml once; it provides shared variables, not a selectable job.
+  # Include every required job and only the selected optional jobs.
+  # Use explicit file paths, never resources/jobs/*.yml.
+  # If Job Setup is declined, omit all job entries, including common.yml.
+  # Example with required SERVICE and optional DATAFLOW:
+  # - resources/jobs/common.yml
+  # - resources/jobs/service.yml
+  # - resources/jobs/dataflow.yml
+
+  # App: add the entry only after App Setup is enabled and confirmed.
+  # main.yml contains both the app resource and its deployment scripts.
+  # Also remove apps/** and resources/apps/** from sync.exclude.
+  # If declined, omit this entry, retain those exclusions, and remove
+  # restore_app_secret_access and start_app from pre/post script selections.
+  # - resources/apps/main.yml
+
+# Bundle variables centralize environment-specific settings. Targets can
+# override these defaults without changing the shared job definition.
+variables:
+
+  #
+  # Project Metadata - used for naming and tagging resources.
+  # Contact the OEDS team project manager for help with these values if you are unsure what to use.
+  #
+
+  # Required project initialization values. The init-project skill replaces
+  # every placeholder in this object before deployment.
+  project:
+    description: Required project identity, naming, and path initialization values.
+    type: complex
+    default:
+      # name: team
+      # description: Team that owns the project.
+      # required: true
+      # value:
+      #   modes: ["options"]
+      #   options: ["OEDS", "AEDS"]
+      team: "{{team}}"
+      # name: domain
+      # description: Business domain used for naming and adjacent mapping lookup.
+      # required: true
+      # value:
+      #   modes: ["options"]
+      #   options: ["FMD", "CUR", "BAP", "SUP", "OEDS"]
+      domain: "{{domain}}"
+      # name: tag
+      # description: Project tag used for naming and tagging resources.
+      # required: true
+      # value:
+      #   modes: ["infer", "input"]
+      #   infer: From domain using FMD -> triton, CUR -> currency,
+      #     BAP -> bap, SUP -> paycan, and OEDS -> oedataservices; otherwise ask.
+      tag: "{{tag}}"
+      # name: catalog
+      # description: Catalog name matching ^[a-z][a-z0-9_]*$, without {env} or _cat.
+      # required: true
+      # value:
+      #   modes: ["infer", "input"]
+      #   infer: From domain using FMD -> financial_markets,
+      #     CUR -> currency, BAP -> banking_and_payments, SUP -> oversight,
+      #     and OEDS -> application;
+      #     otherwise ask.
+      catalog: "{{catalog}}"
+      # name: dataset
+      # description: Lowercase business dataset name, usually the dataset folder name in raw zone. This is used for job naming and dataset-specific paths in landing zone and should be unique within the project.
+      # required: true
+      # value:
+      #   modes: ["input"]
+      #   input_example: "corra"
+      dataset: "{{dataset}}"
+      # name: raw_path
+      # description: the {schema}/{provider}/{dataset} portion of the path in the raw volume for the dataset, which is used to derive the full raw volume path.
+      # required: false
+      # value:
+      #   modes: ["input"]
+      #   input_example: "restricted/ciro/corra"
+      raw_path: "{{raw_path}}"
+
+  #
+  # Date/Geography settings - used to define the default timezone and date formats for the project
+  #
+
+  # default timezone
+  timezone:
+    default: "America/Toronto"
+  # default date format for human-readable dates
+  human_date_format:
+    default: "YYYY-MM-DD"
+  # default date format for Python datetime objects
+  python_date_format:
+    default: "%Y-%m-%d"
+  # default date format for Spark SQL
+  spark_date_format:
+    default: "yyyy-MM-dd"
+  # reference holiday group used to initialize the shared calendar model
+  holiday_group:
+    default: "nationalholidayscanada"
+
+  #
+  # Runtime settings - used to define the Databricks runtime configuration
+  #
+
+  # environment name: dev, stg, prd
+  env:
+    default: ${bundle.target}
+  # Default debug flag passed into tasks unless the job run overrides it. This is used to control logging and other debug features in the pipeline.
+  debug:
+    default: true
+  # Bundle installation root path, used to define the root path for the bundle installation
+  bundle_root:
+    default: ${workspace.file_path}
+  # Nexus repository URL for Python package dependencies. This may be used for serverless compute clusters that the packages needs to be installed inside notebooks.
+  nexus_url:
+    default: "https://fcp4lnexuap01.bocad.bank-banque-canada.ca/nexus/repository/pypi-all/simple"
+
+  #
+  # Compute settings - local classic, central classic, and serverless
+  #
+
+  # compute_setup:
+  #   recommended: classic-local-16.4
+  #   defaults:
+  #     classic-central: classic-runtime-16.4-cached
+  #     serverless-central: serverless-standard-v6-cached
+  #   options:
+  #     - choice: classic-local-16.4
+  #       type: classic-local
+  #       path: cluster/init.sh
+  #     - choice: classic-runtime-16.4
+  #       type: classic-central
+  #       runtime_version: "16.4.x-scala2.13"
+  #     - choice: classic-runtime-16.4-cached
+  #       type: classic-central
+  #       runtime_version: "16.4.x-scala2.13"
+  #     - choice: classic-runtime-17.3
+  #       type: classic-central
+  #       runtime_version: "17.3.x-scala2.13"
+  #     - choice: classic-runtime-17.3-cached
+  #       type: classic-central
+  #       runtime_version: "17.3.x-scala2.13"
+  #     - choice: serverless-standard-v6-cached
+  #       type: serverless-central
+  # Present every choice above only when Job Setup is enabled.
+  # After a classic choice, select regular (default) or high performance job cluster.
+  # Require one selection for all enabled jobs; a recommendation is not consent.
+  # Central choices are DataBoot configuration folder names under compute_central_root.
+  # Keep this catalog aligned with DataBoot when maintaining the source template.
+  # Use the template runtime major.minor in the local choice and recommendation.
+  # Resolve compute_config_name separately for each central path during Compute Setup.
+  # Use the selected choice for its type and defaults for the unused central type.
+  # Local classic uses both central defaults; its path is relative to bundle_root.
+  # If Job Setup is declined, resolve unused path placeholders from these defaults
+  # without a compute prompt; preserve concrete path overrides.
+
+  # Classic - shared runtime and policy
+  compute_classic_runtime_version:
+    default: "16.4.x-scala2.13"
+  # Selected classic job cluster policy; regular is the default.
+  # job_cluster_policy:
+  #   default: regular
+  #   options:
+  #     - choice: regular
+  #       label: Regular job cluster
+  #       policy_ids:
+  #         dev: "00036D9F32BEB29D"
+  #         stg: "00019C9CFEBF0831"
+  #         prd: "00113606D4E7542D"
+  #     - choice: high-performance
+  #       label: High performance job cluster
+  #       policy_ids:
+  #         dev: "00016129B7BC675D"
+  #         stg: "001684929FAD2BDD"
+  #         prd: "0001B7D3C9D8F10F"
+  compute_classic_job_policy_id:
+    default: ""
+
+  # Classic - local init script deployed with the project
+  compute_classic_local_init_path:
+    default: "${var.bundle_root}/cluster/init.sh"
+
+  # Shared central root - local bootstrap hooks must not publish here
+  compute_central_root:
+    default: "/Volumes/${bundle.target}_application_cat/oedataservices_db/vol_oedataservices_config/databricks/cluster"
+
+  # Classic - central init script managed by DataBoot
+  compute_classic_central_init_path:
+    # name: compute_config_name
+    # description: DataBoot folder supplying the central classic init script.
+    # required: true
+    # value:
+    #   modes: ["infer"]
+    #   infer: >-
+    #     When jobs are enabled, use the selected compute choice when its type is
+    #     classic-central; otherwise use compute_setup.defaults.classic-central.
+    default: "${var.compute_central_root}/configuration/{{compute_config_name}}/init.sh"
+
+  # Serverless - central environment managed by DataBoot
+  compute_serverless_environment_key:
+    default: "dataforge"
+  compute_serverless_environment_path:
+    # name: compute_config_name
+    # description: DataBoot folder supplying the central serverless configuration.
+    # required: true
+    # value:
+    #   modes: ["infer"]
+    #   infer: >-
+    #     When jobs are enabled, use the selected compute choice when its type is
+    #     serverless-central; otherwise use compute_setup.defaults.serverless-central.
+    default: "${var.compute_central_root}/configuration/{{compute_config_name}}/configuration.yml"
+
+
+  #
+  # Project Databricks resources
+  # Derived from the initialized project metadata and deployment target.
+  #
+
+  # Fully qualified catalog derived from the target environment and project catalog tag.
+  # Example for dev and financial_markets: "dev_financial_markets_cat".
+  catalog:
+    description: Fully qualified environment-specific project catalog name.
+    default: "${var.env}_${var.project.catalog}_cat"
+  # Landing root derived from the project catalog tag and resource tag.
+  land_root:
+    default: "/Volumes/${var.catalog}/reference_db/vol_${var.project.tag}_land/${var.project.dataset}"
+  tmp_root:
+    default: "/Volumes/${var.catalog}/reference_db/vol_${var.project.tag}_land/tmp/${var.project.dataset}"
+  # Integration test directory within the databench volume
+  databench_root:
+    default: "/Volumes/${var.env}_application_cat/databench_db/vol_databench_config/tests/${var.project.domain}/${var.project.dataset}"
+  # Outbound root within the project landing volume.
+  outbound_root:
+    default: "/Volumes/${var.catalog}/reference_db/vol_${var.project.tag}_land/outbound/${var.project.dataset}"
+  # Configuration root derived from the project catalog tag and resource tag.
+  config_root:
+    default: "/Volumes/${var.catalog}/reference_db/vol_${var.project.tag}_config/${var.project.dataset}"
+  # Full raw Volume root derived from the environment and relative raw path.
+  raw_root:
+    default: "/Volumes/${var.env}_raw_cat/${var.project.raw_path}"
+
+  # Project credential scope selected by domain; not derived from project.tag.
+  # All mapped values are literal; resolve during General setup.
+  # mapping:
+  #   FMD: lake-kv-triton-scope
+  #   CUR: lake-kv-currency-scope
+  #   BAP: lake-kv-oedataservices-scope
+  #   SUP: lake-kv-paycan-scope
+  #   OEDS: lake-kv-oedataservices-scope
+  # name: secrete_scope
+  # description: Project credential scope selected by domain; not derived from project.tag.
+  # required: true
+  # value:
+  #   modes: ["infer"]
+  #   infer: From this variable's mapping using confirmed project.domain
+  #     case-insensitively. Use the domain scalar as the default inherited by all
+  #     targets; do not create target overrides. Preserve the literal string.
+  secrete_scope:
+    default: '{{secrete_scope}}'
+
+  # OEDS Secret scope - used to access OEDS common secrets
+  oeds_secrete_scope:
+    default: "lake-kv-oedataservices-scope"
+
+  # App credential scope selected by domain; not derived from project.tag.
+  # All mapped values are literal; resolve during General setup.
+  # mapping:
+  #   FMD: lake-kv-tritonapp-scope
+  #   CUR: lake-kv-currencyapp-scope
+  #   BAP: lake-kv-oedataservicesapp-scope
+  #   SUP: lake-kv-paycanapp-scope
+  #   OEDS: lake-kv-oedataservicesapp-scope
+  # name: app_secrete_scope
+  # description: App credential scope selected by domain; not derived from project.tag.
+  # required: true
+  # value:
+  #   modes: ["infer"]
+  #   infer: From this variable's mapping using confirmed project.domain
+  #     case-insensitively. Use the domain scalar as the default inherited by all
+  #     targets; do not create target overrides. Preserve the literal string.
+  app_secrete_scope:
+    description: Existing secret scope for application credentials.
+    default: '{{app_secrete_scope}}'
+
+  #
+  # Databricks unity catalogs
+  #
+
+  # Financial markets catalog derived from the deployment target.
+  fmd_catalog:
+    default: "${var.env}_financial_markets_cat"
+  # Currency catalog derived from the deployment target.
+  cur_catalog:
+    default: "${var.env}_currency_cat"
+  # Banking and payments catalog derived from the deployment target.
+  bap_catalog:
+    default: "${var.env}_banking_and_payments_cat"
+  # Oversight catalog derived from the deployment target.
+  sup_catalog:
+    default: "${var.env}_oversight_cat"
+  # Metadata catalog derived from the deployment target.
+  metadata_catalog:
+    default: "${var.env}_metadata_cat"
+  # Reference catalog derived from the deployment target.
+  reference_catalog:
+    default: "${var.env}_reference_cat"
+  # Application catalog derived from the deployment target.
+  application_catalog:
+    default: "${var.env}_application_cat"
+  # Internal source catalog derived from the deployment target.
+  internal_catalog:
+    default: "${var.env}_boc_internal_src_cat"
+
+  #
+  # System Integration settings - used to integrate with other Databricks resources and external systems.
+  #
+
+  # Azure subscription ID used for Azure resource references.
+  azure_subscription_id:
+    default: ""
+  # Azure tenant ID used for service-principal authentication.
+  azure_tenant_id:
+    default: ""
+
+  #
+  # Existing service-principal client ID secret key name, selected by domain and target.
+  # All mapped values are literal; resolve during General setup.
+  # mapping:
+  #   FMD:
+  #     dev: spn-tritonservices-id
+  #     stg: spn-tritonservices-id
+  #     prd: spn-tritonservices-id
+  #   CUR:
+  #     dev: spn-currencyservices-id
+  #     stg: spn-currencyservices-id
+  #     prd: spn-currencyservices-id
+  #   BAP:
+  #     dev: app-2b501945-5940-4527-9cdd-51a07b77ceb7-appid
+  #     stg: app-118bb443-4441-422d-b9b4-14cdc5ede028-appid
+  #     prd: app-9a4da41a-bd6d-4773-99ce-2ba8b78f4d65-appid
+  #   SUP:
+  #     dev: spn-paycanservices-id
+  #     stg: spn-paycanservices-id
+  #     prd: spn-paycanservices-id
+  #   OEDS:
+  #     dev: app-2b501945-5940-4527-9cdd-51a07b77ceb7-appid
+  #     stg: app-118bb443-4441-422d-b9b4-14cdc5ede028-appid
+  #     prd: app-9a4da41a-bd6d-4773-99ce-2ba8b78f4d65-appid
+  # name: service_spn_id_key
+  # description: Existing service-principal client ID secret key name, selected by domain and target.
+  # required: true
+  # value:
+  #   modes: ["infer"]
+  #   infer: From this variable's mapping using confirmed project.domain
+  #     case-insensitively and dev for the root default; populate every target
+  #     from its matching entry. Preserve the literal string.
+  service_spn_id_key:
+    default: '{{service_spn_id_key}}'
+
+  # Existing service-principal secret key name, selected by domain and target.
+  # All mapped values are literal; resolve during General setup.
+  # mapping:
+  #   FMD:
+  #     dev: spn-tritonservices-key
+  #     stg: spn-tritonservices-key
+  #     prd: spn-tritonservices-key
+  #   CUR:
+  #     dev: spn-currencyservices-key
+  #     stg: spn-currencyservices-key
+  #     prd: spn-currencyservices-key
+  #   BAP:
+  #     dev: app-2b501945-5940-4527-9cdd-51a07b77ceb7-secret
+  #     stg: app-118bb443-4441-422d-b9b4-14cdc5ede028-secret
+  #     prd: app-9a4da41a-bd6d-4773-99ce-2ba8b78f4d65-secret
+  #   SUP:
+  #     dev: spn-paycanservices-key
+  #     stg: spn-paycanservices-key
+  #     prd: spn-paycanservices-key
+  #   OEDS:
+  #     dev: app-2b501945-5940-4527-9cdd-51a07b77ceb7-secret
+  #     stg: app-118bb443-4441-422d-b9b4-14cdc5ede028-secret
+  #     prd: app-9a4da41a-bd6d-4773-99ce-2ba8b78f4d65-secret
+  # name: service_spn_secrete_key
+  # description: Existing service-principal secret key name, selected by domain and target.
+  # required: true
+  # value:
+  #   modes: ["infer"]
+  #   infer: From this variable's mapping using confirmed project.domain
+  #     case-insensitively and dev for the root default; populate every target
+  #     from its matching entry. Preserve the literal string.
+  service_spn_secrete_key:
+    default: '{{service_spn_secrete_key}}'
+
+  #
+  # Databricks integration settings - used to call Databricks jobs and SQL warehouses
+  # Internal Databricks workspace URL.
+  internal_databricks_workspace_url:
+    default: ""
+  # Internal Databricks workspace resource ID.
+  internal_databricks_resource_id:
+    default: ""
+  # External Databricks workspace URL.
+  external_databricks_workspace_url:
+    default: ""
+  # External Databricks workspace resource ID.
+  external_databricks_resource_id:
+    default: ""
+  # Serverless large SQL warehouse ID.
+  sql_warehouse_serverless_large_id:
+    default: ""
+  # Classic medium SQL warehouse ID.
+  sql_warehouse_classic_medium_id:
+    default: ""
+
+  #
+  # DataBridge ingestion service settings used to upload and resolve externally ingested files.
+  # Antivirus scan storage root URI used to resolve uploaded files to the land root.
+  # Job ID for the internal DataBridge job.
+  internal_dis_job_id:
+    default: ""
+  # Job ID for the external DataBridge job.
+  external_dis_job_id:
+    default: ""
+  # Antivirus scan root. Each default target supplies its environment storage
+  # account and derives the project container and dataset path.
+  dis_av_root:
+    description: Environment-specific antivirus scan storage root URI.
+  # Secret key for the DataBridge OEDISEXT service account client ID in the OEDS secret scope.
+  dis_oedisext_client_id_key:
+    default: ""
+  # Secret key for the DataBridge OEDISEXT service account client secret in the OEDS secret scope.
+  dis_oedisext_client_secret_key:
+    default: ""
+
+  #
+  # Email service settings - Used to send email notifications from Databricks jobs
+  # Secrete key of the Email service URL stored in OEDS Key Vault
+  email_service_url_key:
+    default: "oeds-email-service-url"
+
+  # DataBridge email service
+  databridge_email_tenant_id_key:
+    default: ""
+  databridge_email_client_id_key:
+    default: ""
+  databridge_email_client_secret_key:
+    default: ""
+  databridge_email_sender_account:
+    default: ""
+
+  #
+  # Time series data publishing settings - used to publish time series data to Datamart endpoints
+  # Secret key for Datamart endpoints JSON in the OEDS secret scope.
+  datamart_endpoints_key:
+    default: "datamart-endpoints"
+
+  #
+  # Deployment scripts
+  #
+
+  # Select existing script names in execution order using comma-separated strings.
+  # Target overrides replace the whole selection; "" disables a phase.
+  # init-project reads script_rules after domain merging and Job/App decisions.
+  # Rules filter selections only: they never add a script or change its order.
+  # targets limits execution to listed targets; requires names an enabled setup.
+  # All conditions must match. Scripts without a rule remain selected.
+  # Preserve unrelated names and repeated entries; use "" if none remain.
+  # DataBench publishing is dev-only; app access repair requires App Setup.
+  # script_rules:
+  #   deploy_databench_config:
+  #     targets: [dev]
+  #   restore_app_secret_access:
+  #     requires: app
+  pre_deploy_scripts:
+    description: Comma-separated names of bundle scripts to run before deployment.
+    default: ""
+
+  # Run selected scripts only after successful deployment.
+  # Apply the same filtering rules as pre_deploy_scripts; never add scripts.
+  # App startup requires App Setup; without it, remove start_app.
+  # script_rules:
+  #   start_app:
+  #     requires: app
+  post_deploy_scripts:
+    description: Comma-separated names of bundle scripts to run after deployment.
+    default: ""
+
+  #
+  # Recipient mapping stored as a literal JSON string, selected by domain and target.
+  # All mapped values are literal; resolve during General setup.
+  # mapping:
+  #   FMD:
+  #     dev: '{"DDA":"dda-support-dev@bank-banque-canada.ca"}'
+  #     stg: '{"DDA":"dda-support-stg@bank-banque-canada.ca","DM":"DataLakeMonitoring-STG@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+  #     prd: '{"DDA":"dda-support@bank-banque-canada.ca","DM":"DataLakeMonitoring-PRD@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+  #   CUR:
+  #     dev: '{"DDA":"dda-support-dev@bank-banque-canada.ca"}'
+  #     stg: '{"DDA":"dda-support-stg@bank-banque-canada.ca","DM":"DataLakeMonitoring-STG@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+  #     prd: '{"DDA":"dda-support@bank-banque-canada.ca","DM":"DataLakeMonitoring-PRD@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+  #   BAP:
+  #     dev: '{"DDA":"dda-support-dev@bank-banque-canada.ca"}'
+  #     stg: '{"DDA":"dda-support-stg@bank-banque-canada.ca","DM":"DataLakeMonitoring-STG@bank-banque-canada.ca"}'
+  #     prd: '{"DDA":"dda-support@bank-banque-canada.ca","DM":"DataLakeMonitoring-PRD@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+  #   SUP:
+  #     dev: '{"DDA":"dda-support-dev@bank-banque-canada.ca"}'
+  #     stg: '{"DDA":"dda-support-stg@bank-banque-canada.ca","DM":"DataLakeMonitoring-STG@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+  #     prd: '{"DDA":"dda-support@bank-banque-canada.ca","DM":"DataLakeMonitoring-PRD@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+  #   OEDS:
+  #     dev: '{"DDA":"dda-support-dev@bank-banque-canada.ca"}'
+  #     stg: '{"DDA":"dda-support-stg@bank-banque-canada.ca","DM":"DataLakeMonitoring-STG@bank-banque-canada.ca"}'
+  #     prd: '{"DDA":"dda-support@bank-banque-canada.ca","DM":"DataLakeMonitoring-PRD@bank-banque-canada.ca"}'
+  # name: email_mappings
+  # description: Recipient mapping stored as a literal JSON string, selected by domain and target.
+  # required: true
+  # value:
+  #   modes: ["infer"]
+  #   infer: From this variable's mapping using confirmed project.domain
+  #     case-insensitively and dev for the root default; populate every target
+  #     from its matching entry. Preserve the literal string.
+  email_mappings:
+    description: Environment-specific email recipient mappings as JSON.
+    default: '{{email_mappings}}'
+
+targets:
+  dev:
+    default: true
+    variables:
+      # name: dev_service_spn_id_key
+      # description: Literal dev value for service_spn_id_key.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.service_spn_id_key, selecting confirmed
+      #     project.domain case-insensitively, then dev. Preserve the string.
+      service_spn_id_key: "{{dev_service_spn_id_key}}"
+      # name: dev_service_spn_secrete_key
+      # description: Literal dev value for service_spn_secrete_key.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.service_spn_secrete_key, selecting confirmed
+      #     project.domain case-insensitively, then dev. Preserve the string.
+      service_spn_secrete_key: "{{dev_service_spn_secrete_key}}"
+      # name: dev_email_mappings
+      # description: Literal dev value for email_mappings.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.email_mappings, selecting confirmed
+      #     project.domain case-insensitively, then dev. Preserve the string.
+      email_mappings: "{{dev_email_mappings}}"
+      # Azure and Databricks integration settings
+      azure_subscription_id: "1de5fd2d-2313-461a-acc4-07cdc509cdf4"
+      azure_tenant_id: "d5d43af4-5942-46a8-907b-711a17e948bd"
+      internal_databricks_workspace_url: "https://adb-1700301391505163.3.azuredatabricks.net"
+      internal_databricks_resource_id: "/subscriptions/1de5fd2d-2313-461a-acc4-07cdc509cdf4/resourceGroups/lake-cac-npd-rg-devplatform/providers/Microsoft.Databricks/workspaces/lake-cac-npd-dbw-devuc01"
+      external_databricks_workspace_url: "https://adb-7405611352003885.5.azuredatabricks.net"
+      external_databricks_resource_id: "/subscriptions/1de5fd2d-2313-461a-acc4-07cdc509cdf4/resourceGroups/lake-cac-npd-rg-devplatform/providers/Microsoft.Databricks/workspaces/lake-cac-npd-dbw-devdmz01"
+      sql_warehouse_serverless_large_id: "c7a96b737254336e"
+      sql_warehouse_classic_medium_id: "01461d896164c7ea"
+      internal_dis_job_id: "987342006066143"
+      external_dis_job_id: "539367079988378"
+
+      # Selected job cluster policy ID; regular is the default.
+      compute_classic_job_policy_id: "00036D9F32BEB29D"
+
+      # DataBridge ingestion service settings
+      dis_av_root: "https://lakecacnpdstdevavscan01.blob.core.windows.net/avscan-${var.project.tag}/${var.project.dataset}"
+      dis_oedisext_client_id_key: "app-ec1ede6d-b2e2-4ec9-8db6-76dbf1410ec9-appid"
+      dis_oedisext_client_secret_key: "app-ec1ede6d-b2e2-4ec9-8db6-76dbf1410ec9-secret"
+
+      # DataBridge email service
+      databridge_email_tenant_id_key: "app-3fc6e6c5-eaa5-4948-ba9a-d3ceebf437db-tenantid"
+      databridge_email_client_id_key: "app-3fc6e6c5-eaa5-4948-ba9a-d3ceebf437db-appid"
+      databridge_email_client_secret_key: "app-3fc6e6c5-eaa5-4948-ba9a-d3ceebf437db-secret"
+      databridge_email_sender_account: "dda-support-dev@bocqa.bank-banque-canada.ca"
+
+      # Candidate selections; apply script_rules beside the variable declarations.
+      pre_deploy_scripts: "deploy_databench_config, restore_app_secret_access"
+      post_deploy_scripts: "start_app"
+
+  stg:
+    mode: production
+    variables:
+      # name: stg_service_spn_id_key
+      # description: Literal stg value for service_spn_id_key.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.service_spn_id_key, selecting confirmed
+      #     project.domain case-insensitively, then stg. Preserve the string.
+      service_spn_id_key: "{{stg_service_spn_id_key}}"
+      # name: stg_service_spn_secrete_key
+      # description: Literal stg value for service_spn_secrete_key.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.service_spn_secrete_key, selecting confirmed
+      #     project.domain case-insensitively, then stg. Preserve the string.
+      service_spn_secrete_key: "{{stg_service_spn_secrete_key}}"
+      # name: stg_email_mappings
+      # description: Literal stg value for email_mappings.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.email_mappings, selecting confirmed
+      #     project.domain case-insensitively, then stg. Preserve the string.
+      email_mappings: "{{stg_email_mappings}}"
+      # Azure and Databricks integration settings
+      azure_subscription_id: "7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc"
+      azure_tenant_id: "164f988b-a2f4-4584-aeaa-21bd4a0234bc"
+      internal_databricks_workspace_url: "https://adb-13344226264609.9.azuredatabricks.net/"
+      internal_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-stgplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-stguc01"
+      external_databricks_workspace_url: "https://adb-7405606501311182.2.azuredatabricks.net"
+      external_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-stgplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-stgdmz01"
+      sql_warehouse_serverless_large_id: "835e240ca5c135b1"
+      sql_warehouse_classic_medium_id: "5ccc7d6ec5563cc2"
+      internal_dis_job_id: "565024403075417"
+      external_dis_job_id: "678386440178716"
+
+      # Selected job cluster policy ID; regular is the default.
+      compute_classic_job_policy_id: "00019C9CFEBF0831"
+
+      # DataBridge ingestion service settings
+      dis_av_root: "https://lakecacprdststgavscan01.blob.core.windows.net/avscan-${var.project.tag}/${var.project.dataset}"
+      dis_oedisext_client_id_key: "app-2ac5ddfe-765c-4a6a-9630-c9e4077ec85c-appid"
+      dis_oedisext_client_secret_key: "app-2ac5ddfe-765c-4a6a-9630-c9e4077ec85c-secret"
+
+      # DataBridge email service
+      databridge_email_tenant_id_key: "app-3c48710c-5f2b-4ee4-93a6-6e1caa7543e2-tenantid"
+      databridge_email_client_id_key: "app-3c48710c-5f2b-4ee4-93a6-6e1caa7543e2-appid"
+      databridge_email_client_secret_key: "app-3c48710c-5f2b-4ee4-93a6-6e1caa7543e2-secret"
+      databridge_email_sender_account: "dda-support-stg@bank-banque-canada.ca"
+
+      # Candidate selections; apply script_rules beside the variable declarations.
+      pre_deploy_scripts: "restore_app_secret_access"
+      post_deploy_scripts: "start_app"
+
+  prd:
+    mode: production
+    variables:
+      # name: prd_service_spn_id_key
+      # description: Literal prd value for service_spn_id_key.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.service_spn_id_key, selecting confirmed
+      #     project.domain case-insensitively, then prd. Preserve the string.
+      service_spn_id_key: "{{prd_service_spn_id_key}}"
+      # name: prd_service_spn_secrete_key
+      # description: Literal prd value for service_spn_secrete_key.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.service_spn_secrete_key, selecting confirmed
+      #     project.domain case-insensitively, then prd. Preserve the string.
+      service_spn_secrete_key: "{{prd_service_spn_secrete_key}}"
+      # name: prd_email_mappings
+      # description: Literal prd value for email_mappings.
+      # required: true
+      # value:
+      #   modes: ["infer"]
+      #   infer: From the mapping beside variables.email_mappings, selecting confirmed
+      #     project.domain case-insensitively, then prd. Preserve the string.
+      email_mappings: "{{prd_email_mappings}}"
+      # Azure and Databricks integration settings
+      azure_subscription_id: "7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc"
+      azure_tenant_id: "164f988b-a2f4-4584-aeaa-21bd4a0234bc"
+      internal_databricks_workspace_url: "https://adb-642333651898149.9.azuredatabricks.net/"
+      internal_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-prdplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-prduc01"
+      external_databricks_workspace_url: "https://adb-7405611475617935.15.azuredatabricks.net"
+      external_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-prdplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-prddmz01"
+      sql_warehouse_serverless_large_id: "8132940984a8731d"
+      sql_warehouse_classic_medium_id: "900dabfd9f34c3b6"
+      internal_dis_job_id: "836895969479883"
+      external_dis_job_id: "34234643609149"
+
+      # Selected job cluster policy ID; regular is the default.
+      compute_classic_job_policy_id: "00113606D4E7542D"
+
+      # DataBridge ingestion service settings
+      dis_av_root: "https://lakecacprdstprdavscan01.blob.core.windows.net/avscan-${var.project.tag}/${var.project.dataset}"
+      dis_oedisext_client_id_key: "app-94eed500-aef7-45e4-8f4f-f8a0cbfaf24f-appid"
+      dis_oedisext_client_secret_key: "app-94eed500-aef7-45e4-8f4f-f8a0cbfaf24f-secret"
+
+      # DataBridge email service
+      databridge_email_tenant_id_key: "app-5a251cc9-488f-44f2-aeb7-b294e298bcec-tenantid"
+      databridge_email_client_id_key: "app-5a251cc9-488f-44f2-aeb7-b294e298bcec-appid"
+      databridge_email_client_secret_key: "app-5a251cc9-488f-44f2-aeb7-b294e298bcec-secret"
+      databridge_email_sender_account: "dda-support@bank-banque-canada.ca"
+
+      # Candidate selections; apply script_rules beside the variable declarations.
+      pre_deploy_scripts: "restore_app_secret_access"
+      post_deploy_scripts: "start_app"

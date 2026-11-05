@@ -1,0 +1,2 @@
+# Use libraries supplied by the Databricks Apps runtime.
+# Local development dependencies are documented in the app template guide.

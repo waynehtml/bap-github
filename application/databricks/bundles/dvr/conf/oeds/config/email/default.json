@@ -1,0 +1,27 @@
+{
+  "dvr_success": {
+    "template": "template/dvr_success.html",
+    "subject": "$ENV - Swift DVR Reconciliation completed — $filename — $report_date",
+    "recipients": ["ARM", "ISLS"]
+  },
+  "dvr_warnings": {
+    "template": "template/dvr_warnings.html",
+    "subject": "$ENV - [WARNINGS] Swift vs HABS Reconciliation — $filename — $report_date",
+    "recipients": ["ARM", "ISLS"]
+  },
+  "dvr_validation_error": {
+    "template": "template/dvr_validation_error.html",
+    "subject": "$ENV - [ACTION REQUIRED] Swift DVR validation errors — $filename — $report_date",
+    "recipients": ["ARM", "ISLS"]
+  },
+  "dvr_processing_error": {
+    "template": "template/dvr_processing_error.html",
+    "subject": "$ENV - [FAILED] Swift DVR pipeline — $filename — $report_date",
+    "recipients": ["ARM", "ISLS"]
+  },
+  "dvr_file_check": {
+    "template": "template/dvr_file_check.html",
+    "subject": "$ENV - [REMINDER] Swift DVR files missing — $report_date",
+    "recipients": ["ARM", "ISLS"]
+  }
+}

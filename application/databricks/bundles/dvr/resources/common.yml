@@ -1,0 +1,118 @@
+variables:
+  common_base_parameters:
+    type: complex
+    default:
+      # Project Metadata
+      team: ${var.project.team}
+      domain: ${var.project.domain}
+      dataset: ${var.project.dataset}
+
+      # Date/Geo Settings
+      timezone: "${var.timezone}"
+      human_date_format: "${var.human_date_format}"
+      python_date_format: "${var.python_date_format}"
+      spark_date_format: "${var.spark_date_format}"
+      holiday_group: "${var.holiday_group}"
+
+      # Runtime settings
+      env: ${bundle.target}
+      bundle_root: ${var.bundle_root}
+      dbk_runtime_version: "${var.compute_classic_runtime_version}"
+      job_name: "{{job.name}}"
+      job_id: "{{job.id}}"
+      job_run_id: "{{job.run_id}}"
+      job_trigger_type: "{{job.trigger.type}}"
+      workspace_url: "{{workspace.url}}"
+      nexus_url: "${var.nexus_url}"
+      nexus_init_path: ${var.bundle_root}/cluster
+
+      # Project Databricks resources
+      catalog: "${var.catalog}"
+      land_root: "${var.land_root}"
+      tmp_root: "${var.tmp_root}"
+      outbound_root: "${var.outbound_root}"
+      config_root: "${var.config_root}"
+      raw_root: "${var.raw_root}"
+      secrete_scope: "${var.secrete_scope}"
+      oeds_secrete_scope: "${var.oeds_secrete_scope}"
+
+      # Project Databricks catalogs
+      fmd_catalog: "${var.fmd_catalog}"
+      cur_catalog: "${var.cur_catalog}"
+      bap_catalog: "${var.bap_catalog}"
+      sup_catalog: "${var.sup_catalog}"
+      metadata_catalog: "${var.metadata_catalog}"
+      reference_catalog: "${var.reference_catalog}"
+      application_catalog: "${var.application_catalog}"
+      internal_catalog: "${var.internal_catalog}"
+
+      # System Integration settings
+      azure_subscription_id_key: "${var.azure_subscription_id_key}"
+      azure_tenant_id_key: "${var.azure_tenant_id_key}"
+      # Service SPN
+      service_spn_id_key: "${var.service_spn_id_key}"
+      service_spn_secrete_key: "${var.service_spn_secrete_key}"
+
+      # Databricks integration settings - jobs and SQL warehouses
+      internal_databricks_workspace_url_key: "${var.internal_databricks_workspace_url_key}"
+      internal_databricks_resource_id_key: "${var.internal_databricks_resource_id_key}"
+      external_databricks_workspace_url_key: "${var.external_databricks_workspace_url_key}"
+      external_databricks_resource_id_key: "${var.external_databricks_resource_id_key}"
+      sql_warehouse_serverless_large_id_key: "${var.sql_warehouse_serverless_large_id_key}"
+      sql_warehouse_classic_medium_id_key: "${var.sql_warehouse_classic_medium_id_key}"
+
+      # DataBridge ingestion service settings
+      dis_av_root: "${var.dis_av_root}"
+      dis_oedisext_client_id_key: "${var.dis_oedisext_client_id_key}"
+      dis_oedisext_client_secret_key: "${var.dis_oedisext_client_secret_key}"
+      internal_dis_job_id_key: "${var.internal_dis_job_id_key}"
+      external_dis_job_id_key: "${var.external_dis_job_id_key}"
+
+      # Email service settings
+      email_service_url_key: "${var.email_service_url_key}"
+
+      # DataBridge email service
+      databridge_email_tenant_id_key: "${var.databridge_email_tenant_id_key}"
+      databridge_email_client_id_key: "${var.databridge_email_client_id_key}"
+      databridge_email_client_secret_key: "${var.databridge_email_client_secret_key}"
+      databridge_email_sender_account: "${var.databridge_email_sender_account}"
+
+      # Time series data publishing settings
+      datamart_endpoints_key: "${var.datamart_endpoints_key}"
+
+      # Project settings
+      # Recipient mappings
+      email_mappings: ${var.email_mappings}
+
+  # Compute configurations - local classic remains the default for jobs.
+  compute_classic_local_cluster:
+    type: complex
+    default: &compute_classic_cluster
+      # Cluster policy and runtime should stay aligned with platform standards.
+      policy_id: ${var.compute_classic_job_policy_id}
+      apply_policy_default_values: true
+      spark_version: ${var.compute_classic_runtime_version}
+      autoscale:
+        min_workers: 1
+        max_workers: 2
+      init_scripts:
+        - workspace:
+            # Default init script location deployed with the bundle workspace files.
+            destination: ${var.compute_classic_local_init_path}
+      spark_env_vars:
+        CLUSTER_ENV: ${bundle.target}
+
+  compute_classic_central_cluster:
+    type: complex
+    default:
+      <<: *compute_classic_cluster
+      init_scripts:
+        - volumes:
+            destination: ${var.compute_classic_central_init_path}
+
+  compute_serverless_environments:
+    type: complex
+    default:
+      - environment_key: ${var.compute_serverless_environment_key}
+        spec:
+          base_environment: ${var.compute_serverless_environment_path}

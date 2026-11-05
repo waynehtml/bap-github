@@ -1,0 +1,21 @@
+# Non-secret configuration for the dev deployment environment.
+variables:
+  - name: databricks-DMZ-host
+    value: 'https://adb-7405611352003885.5.azuredatabricks.net'
+    readonly: true
+
+  - name: databricks-UC01-host
+    value: 'https://adb-1700301391505163.3.azuredatabricks.net'
+    readonly: true
+
+  - name: service_connection
+    value: 'lake-dscn-bocqa01'
+    readonly: true
+
+  - name: storage_land01
+    value: 'lakecacnpdstdevland01'
+    readonly: true
+
+  - name: storage_land02
+    value: 'lakecacnpdstdevland02'
+    readonly: true

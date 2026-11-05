@@ -1,0 +1,3 @@
+# Additional application dependencies only; pin each as package==version.
+# Currently all dependencies are supplied by Databricks Apps and its libraries.
+# Local runtime package pins are maintained in environment.yml.

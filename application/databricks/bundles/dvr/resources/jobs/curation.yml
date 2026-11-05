@@ -1,0 +1,221 @@
+# purpose: Runs optional dependency, curation, and integration stages.
+# required: false
+variables:
+  # name: curation_job_name
+  # description: Uppercase full display name for the curation job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.domain and project.dataset using the
+  #     uppercase form <DOMAIN>-<DATASET>-CURATION.
+  #   input_example: "FMD-CORRA-CURATION"
+  curation_job_name:
+    default: "{{curation_job_name}}"
+  # name: curation_job_description
+  # description: Operator-facing description of the curation job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.dataset using <dataset> curation job.
+  #   input_example: "CORRA curation job."
+  curation_job_description:
+    default: "{{curation_job_description}}"
+
+resources:
+  jobs:
+    CURATION:
+      name: ${var.curation_job_name}
+      description: ${var.curation_job_description}
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        application: ${var.project.dataset}
+        type: "curation"
+        criticality: "low"
+
+      permissions: ${var.job_permissions}
+
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        enabled: false
+      max_concurrent_runs: 1
+
+      parameters:
+        - name: rundate
+          default: ""
+        - name: debug
+          default: ${var.debug}
+        - name: args
+          default: ""
+        - name: job_run_dependency_check
+          default: "1"
+        - name: job_run_curate
+          default: "1"
+        - name: job_run_integrate
+          default: "1"
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+      # Central classic: use new_cluster: ${var.compute_classic_central_cluster}.
+      # Serverless: remove job_clusters and add the following job-level setting:
+      # environments: ${var.compute_serverless_environments}
+      # Replace every notebook task's job_cluster_key with:
+      # environment_key: ${var.compute_serverless_environment_key}
+      # Leave condition tasks without compute references.
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster: ${var.compute_classic_local_cluster}
+
+      tasks:
+        - task_key: main
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/curation/task_00_main.py
+            base_parameters: ${var.common_base_parameters}
+
+        - task_key: check_after_main
+          depends_on:
+            - task_key: main
+          condition_task:
+            left: "{{tasks.main.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        - task_key: check_run_dependency_check
+          depends_on:
+            - task_key: check_after_main
+              outcome: "true"
+          condition_task:
+            left: "{{job.parameters.job_run_dependency_check}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        - task_key: dependency_check
+          depends_on:
+            - task_key: check_run_dependency_check
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/curation/task_10_dependency_check.py
+            base_parameters: ${var.common_base_parameters}
+
+        - task_key: check_after_dependency_check
+          depends_on:
+            - task_key: dependency_check
+          condition_task:
+            left: "{{tasks.dependency_check.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        - task_key: check_run_curate
+          depends_on:
+            - task_key: check_run_dependency_check
+              outcome: "false"
+            - task_key: check_after_dependency_check
+              outcome: "true"
+          run_if: AT_LEAST_ONE_SUCCESS
+          condition_task:
+            left: "{{job.parameters.job_run_curate}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        - task_key: curate
+          depends_on:
+            - task_key: check_run_curate
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/curation/task_20_curate.py
+            base_parameters: ${var.common_base_parameters}
+
+        - task_key: check_after_curate
+          depends_on:
+            - task_key: curate
+          condition_task:
+            left: "{{tasks.curate.values.flow_action}}"
+            op: EQUAL_TO
+            right: "continue"
+
+        - task_key: check_run_integrate
+          depends_on:
+            - task_key: check_run_curate
+              outcome: "false"
+            - task_key: check_after_curate
+              outcome: "true"
+          run_if: AT_LEAST_ONE_SUCCESS
+          condition_task:
+            left: "{{job.parameters.job_run_integrate}}"
+            op: NOT_EQUAL
+            right: "0"
+
+        - task_key: integrate
+          depends_on:
+            - task_key: check_run_integrate
+              outcome: "true"
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/curation/task_30_integrate.py
+            base_parameters: ${var.common_base_parameters}
+
+        - task_key: on_complete
+          depends_on:
+            - task_key: check_after_main
+              outcome: "false"
+            - task_key: check_after_dependency_check
+              outcome: "false"
+            - task_key: check_after_curate
+              outcome: "false"
+            - task_key: check_run_integrate
+              outcome: "false"
+            - task_key: integrate
+          run_if: AT_LEAST_ONE_SUCCESS
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/curation/task_90_on_complete.py
+            base_parameters: ${var.common_base_parameters}
+
+        - task_key: on_failure
+          depends_on:
+            - task_key: main
+            - task_key: dependency_check
+            - task_key: curate
+            - task_key: integrate
+          run_if: AT_LEAST_ONE_FAILED
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/curation/task_91_on_failure.py
+            base_parameters: ${var.common_base_parameters}
+
+targets:
+  dev:
+    resources:
+      jobs:
+        CURATION:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED
+
+  stg:
+    resources:
+      jobs:
+        CURATION:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED
+
+  prd:
+    resources:
+      jobs:
+        CURATION:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED

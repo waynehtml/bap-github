@@ -1,0 +1,413 @@
+bundle:
+  # name: bundle_name
+  # description: Logical Databricks bundle name used for deployment metadata.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: Use the project root folder name as the default.
+  #   input_example: "corra"
+  name: habs
+
+workspace:
+  # Workspace folder where bundle is deployed. This is where the bundle state and synced source files are stored.
+  # The default value below is the recommended location for bundles.
+  root_path: /Workspace/${var.project.tag}/.bundle/${bundle.name}
+
+include:
+  - resources/jobs.yml
+
+# Bundle variables centralize environment-specific settings. Targets can
+# override these defaults without changing the shared job definition.
+variables:
+
+  # Required project initialization values. The init-project skill replaces
+  # every placeholder in this object before deployment.
+  project:
+    description: Required project identity, naming, and path initialization values.
+    type: complex
+    default:
+      # name: team
+      # description: Team that owns the project.
+      # required: true
+      # value:
+      #   modes: ["options"]
+      #   options: ["OEDS", "AEDS"]
+      team: "OEDS"
+      # name: domain
+      # description: Business domain used for naming and domain-file selection.
+      # required: true
+      # value:
+      #   modes: ["options"]
+      #   options: ["FMD", "CUR", "BAP", "SUP"]
+      domain: "BAP"
+      # name: tag
+      # description: Project tag used for naming and tagging resources.
+      # required: true
+      # value:
+      #   modes: ["infer", "input"]
+      #   infer: From domain using FMD -> triton, CUR -> currency,
+      #     BAP -> bap, and SUP -> paycan; otherwise ask.
+      tag: "bap"
+      # name: catalog
+      # description: Catalog name matching ^[a-z][a-z0-9_]*$, without {env} or _cat.
+      # required: true
+      # value:
+      #   modes: ["infer", "input"]
+      #   infer: From domain using FMD -> financial_markets,
+      #     CUR -> currency, BAP -> banking_and_payments, and SUP -> oversight;
+      #     otherwise ask.
+      catalog: "banking_and_payments"
+
+  #
+  # Date/Geography settings - used to define the default timezone and date formats for the project
+  #
+
+  # default timezone
+  timezone:
+    default: "America/Toronto"
+  # default date format for human-readable dates
+  human_date_format:
+    default: "YYYY-MM-DD"
+  # default date format for Python datetime objects
+  python_date_format:
+    default: "%Y-%m-%d"
+  # default date format for Spark SQL
+  spark_date_format:
+    default: "yyyy-MM-dd"
+  # reference holiday group used to initialize the shared calendar model
+  holiday_group:
+    default: "nationalholidayscanada"
+
+  #
+  # Runtime settings - used to define the Databricks runtime configuration
+  #
+
+  # environment name: dev, stg, prd
+  env:
+    default: ${bundle.target}
+  # Default debug flag passed into tasks unless the job run overrides it. This is used to control logging and other debug features in the pipeline.
+  debug:
+    default: true
+  # Bundle installation root path, used to define the root path for the bundle installation
+  bundle_root:
+    default: ${workspace.file_path}
+  # Databricks runtime version
+  dbk_runtime_version:
+    default: "16.4.x-scala2.13"
+  # SPN ID used as the job run identity. Each <DOMAIN>.databricks.yml provides
+  # the approved dev/stg/prd values.
+  # Example target override:
+  #   job_runas_account: "00000000-0000-0000-0000-000000000000"
+  job_runas_account:
+    description: Environment-specific service principal used to run jobs.
+  # Job cluster policy ID, which is used to create job clusters for the jobs defined in this bundle. p_oeds_job is the default policy for OEDS jobs
+  job_cluster_policy_id:
+    default: ""
+  # Job high performacne cluster policy ID, which is used to create high performance job clusters for the jobs defined in this bundle. 
+  job_high_performance_cluster_policy_id:
+    default: ""
+  # Alert recipients for job failures. Each <DOMAIN>.databricks.yml provides
+  # the approved dev/stg/prd values.
+  # Example target override:
+  #   job_alert_emails:
+  #     - "team-support@example.com"
+  job_alert_emails:
+    description: Environment-specific job failure notification recipients.
+    type: complex
+  # DATAFLOW, CURATION, SERVICE, and OPERATION share these
+  # permissions. Each
+  # <DOMAIN>.databricks.yml provides the approved dev/stg/prd values.
+  # Example target override:
+  #   job_permissions:
+  #     - group_name: "lake_aeengsupport_rusr_inda"
+  #       level: CAN_MANAGE
+  job_permissions:
+    description: Environment-specific permissions shared by all jobs.
+    type: complex
+  # Nexus repository URL for Python package dependencies. This may be used for serverless compute clusters that the packages needs to be installed inside notebooks.
+  nexus_url:
+    default: "https://fcp4lnexuap01.bocad.bank-banque-canada.ca/nexus/repository/pypi-all/simple"
+  # Cluster init script directory. The default uses the bundle workspace files; volume deployment can override it through cluster/env.sh and the deployment pipeline.
+  CLUSTER_INIT_PATH:
+    default: "/Volumes/${var.env}_banking_and_payments_cat/reference_db/vol_bap_config/habs/cluster/.init"
+
+  #
+  # Project Databricks resources
+  # Derived from the initialized project metadata and deployment target.
+  #
+
+  # Fully qualified catalog derived from the target environment and project catalog tag.
+  # Example for dev and financial_markets: "dev_financial_markets_cat".
+  catalog:
+    description: Fully qualified environment-specific project catalog name.
+    default: "${var.env}_${var.project.catalog}_cat"
+  fmd_catalog:
+    default: "${var.env}_financial_markets_cat"
+  ref_catalog:
+    default: "${var.env}_reference_cat"  
+  fmbodw_catalog:
+    default: "${var.env}_ext_ora_fmbodw_cat"
+  habs_catalog:
+    default: "${var.env}_ext_ora_habs_cat"
+  # Landing root derived from the project catalog tag and resource tag.
+  land_root:
+    default: "/Volumes/${var.catalog}/reference_db/vol_${var.project.tag}_land"
+  # Configuration root derived from the project catalog tag and resource tag.
+  config_root:
+    default: "/Volumes/${var.catalog}/reference_db/vol_${var.project.tag}_config"
+
+  # Project secret scope derived from the project resource tag.
+  secret_scope:
+    default: "lake-kv-oedataservices-scope"
+  oeds_secret_scope:
+    default: "lake-kv-oedataservices-scope"
+
+
+  #
+  # System Integration settings - used to integrate with other Databricks resources and external systems.
+  #
+
+  # Azure subscription ID used for Azure resource references.
+  azure_subscription_id:
+    default: ""
+  # Azure tenant ID used for service-principal authentication.
+  azure_tenant_id:
+    default: ""
+
+  #
+  # Project service principal - ID and secret key stored in project secret scope, used to access external resources such as Databricks REST API, Azure services, etc. This is usually the same as the job runas account.
+  # Service principal ID key derived from the project resource tag.
+  service_spn_id_key:
+    default: ""
+  # Service principal secret key derived from the project resource tag.
+  service_spn_secret_key:
+    default: ""
+
+  # Metadata catalog derived from the deployment target.
+  metadata_cat:
+    default: "${var.env}_metadata_cat"
+  # Reference catalog derived from the deployment target.
+  reference_cat:
+    default: "${var.env}_reference_cat"
+
+
+  #
+  # Databricks integration settings - used to call Databricks jobs
+  # Internal Databricks workspace URL
+  internal_databricks_workspace_url:
+    default: ""
+  # Internal Databricks workspace resource ID
+  internal_databricks_resource_id:
+    default: ""
+  # External Databricks workspace URL
+  external_databricks_workspace_url:
+    default: ""
+  # External Databricks workspace resource ID
+  external_databricks_resource_id:
+    default: ""
+
+  #
+  # Email service settings - Used to send email notifications from Databricks jobs
+  # secret key of the Email service URL stored in OEDS Key Vault
+  email_service_url_key:
+    default: "oeds-email-service-url"
+  # Recipient mappings used by the email service. Each <DOMAIN>.databricks.yml
+  # provides the approved dev/stg/prd JSON value.
+  # Example target override:
+  #   email_mappings: '{"SUPPORT":"team-support@example.com"}'
+  email_mappings:
+    description: Environment-specific email recipient mappings as JSON.
+
+  #
+  # Time series data publishing settings - used to publish time series data to Datamart endpoints
+  # Datamart endpoints for publishing time series data, stored as a JSON string if there are multiple endpoints. sample format: [{"URL":"https://api-dev.bank-banque-canada.ca/datamart/v1/api/uc/pipeline/ingest", "SCOPE":"api://1dae7513-113d-460e-a2a8-3f4045ca7e25/.default"}]
+  datamart_endpoints:
+    default: ""
+
+
+  #
+  # DataBridge ingestion service settings used to upload and resolve externally ingested files.
+  # Antivirus scan storage root URI used to resolve uploaded files to the land root.
+  # Job ID for the internal DataBridge job
+  internal_dis_job_id:
+    default: ""
+  # Job ID for the external DataBridge job
+  external_dis_job_id:
+    default: ""
+  # Antivirus scan root. Each default target supplies its environment storage
+  # account and derives the project container and dataset path.
+  dis_av_root:
+    description: Environment-specific antivirus scan storage root URI.
+  # Secret key for the DataBridge OEDISEXT service account client ID in the OEDS secret scope.
+  dis_oedisext_client_id_key:
+    default: ""
+  # Secret key for the DataBridge OEDISEXT service account client secret in the OEDS secret scope.
+  dis_oedisext_client_secret_key:
+    default: ""
+
+  # SQL Warehouse ID    
+  sql_warehouse_id: 
+    default: ""
+
+  # Support Team AD group  
+  support_ad_group: 
+    default: ""
+  # DM Team AD group  
+  dm_ad_group: 
+    default: "lake_dmengineer_rusr_inpa"
+    
+targets:
+  dev:
+    default: true
+    workspace:
+      host: https://adb-1700301391505163.3.azuredatabricks.net
+    variables:
+      habs_catalog: "dev_ext_ora_habs"
+      sql_warehouse_id: "b3c9f78bbe356dd9"
+      # Support AD Group 
+      support_ad_group: "lake_aeengsupport_rusr_inda"
+      # lake-dev-oedataservices-services
+      job_runas_account: "2b501945-5940-4527-9cdd-51a07b77ceb7"
+      job_alert_emails:
+        - dda-support-dev@bank-banque-canada.ca
+      job_permissions:
+        - group_name: "lake_aeengsupport_rusr_inda"
+          level: CAN_MANAGE
+        # lake-dev-oedataservices-services
+        - service_principal_name: "2b501945-5940-4527-9cdd-51a07b77ceb7"
+          level: CAN_MANAGE_RUN
+      email_mappings: '{"DDA":"dda-support-dev@bank-banque-canada.ca"}'
+      # lake-dev-oedataservices-services
+      service_spn_id_key: "app-2b501945-5940-4527-9cdd-51a07b77ceb7-appid"
+      service_spn_secret_key: "app-2b501945-5940-4527-9cdd-51a07b77ceb7-secret"
+
+      # Job cluster policy ID for the jobs to create job clusters under
+      job_cluster_policy_id: "00036D9F32BEB29D"
+
+      # Job high performance cluster policy ID for the jobs to create job clusters under
+      job_high_performance_cluster_policy_id: "00016129B7BC675D"
+
+      # Service account used to access external resources such as Databricks REST API, Azure services, etc. This is usually the project service principal, same as the job runas account
+      azure_subscription_id: "1de5fd2d-2313-461a-acc4-07cdc509cdf4"
+      azure_tenant_id: "d5d43af4-5942-46a8-907b-711a17e948bd"
+
+      # Databricks workspace URL, resource ID, and job ID for internal ingestion job calls
+      internal_databricks_workspace_url: "https://adb-1700301391505163.3.azuredatabricks.net"
+      internal_databricks_resource_id: "/subscriptions/1de5fd2d-2313-461a-acc4-07cdc509cdf4/resourceGroups/lake-cac-npd-rg-devplatform/providers/Microsoft.Databricks/workspaces/lake-cac-npd-dbw-devuc01"
+      external_databricks_workspace_url: "https://adb-7405611352003885.5.azuredatabricks.net"
+      external_databricks_resource_id: "/subscriptions/1de5fd2d-2313-461a-acc4-07cdc509cdf4/resourceGroups/lake-cac-npd-rg-devplatform/providers/Microsoft.Databricks/workspaces/lake-cac-npd-dbw-devdmz01"
+
+      # Datamart endpoints for publishing time series data, stored as a JSON string if there are multiple endpoints.
+      datamart_endpoints: '[{"URL":"https://api-dev.bank-banque-canada.ca/datamart/v1/api/uc/pipeline/ingest", "SCOPE":"api://1dae7513-113d-460e-a2a8-3f4045ca7e25/.default"}]'
+
+      # DataBridge ingestion service settings
+      internal_dis_job_id: "987342006066143"
+      external_dis_job_id: "539367079988378"
+      dis_av_root: "https://lakecacnpdstdevavscan01.blob.core.windows.net/avscan-${var.project.tag}"
+      dis_oedisext_client_id_key: "app-ec1ede6d-b2e2-4ec9-8db6-76dbf1410ec9-appid"
+      dis_oedisext_client_secret_key: "app-ec1ede6d-b2e2-4ec9-8db6-76dbf1410ec9-secret"
+
+  stg:
+    mode: production
+    workspace:
+      host: https://adb-13344226264609.9.azuredatabricks.net
+    variables:
+      debug: false  
+      sql_warehouse_id: "835e240ca5c135b1"
+      support_ad_group: "lake_aeengsupport_rusr_inpa"
+      # lake-stg-oedataservices-services
+      job_runas_account: "118bb443-4441-422d-b9b4-14cdc5ede028"
+      job_alert_emails:
+        - dda-support-stg@bank-banque-canada.ca
+        - DataLakeMonitoring-STG@bank-banque-canada.ca
+      job_permissions:
+        - group_name: "lake_aeengsupport_rusr_inpa"
+          level: CAN_MANAGE
+        # lake-stg-oedataservices-services
+        - service_principal_name: "118bb443-4441-422d-b9b4-14cdc5ede028"
+          level: CAN_MANAGE_RUN
+        - group_name: "lake_dmengineer_rusr_inpa"
+          level: CAN_MANAGE_RUN
+      email_mappings: '{"DDA":"dda-support-stg@bank-banque-canada.ca","DM":"DataLakeMonitoring-STG@bank-banque-canada.ca"}'
+      # lake-stg-oedataservices-services
+      service_spn_id_key: "app-118bb443-4441-422d-b9b4-14cdc5ede028-appid"
+      service_spn_secret_key: "app-118bb443-4441-422d-b9b4-14cdc5ede028-secret"
+
+      # Job cluster policy ID for the jobs to create job clusters under
+      job_cluster_policy_id: "00019C9CFEBF0831"
+
+      # Job high performance cluster policy ID for the jobs to create job clusters under
+      job_high_performance_cluster_policy_id: "001684929FAD2BDD"
+
+      # Service account used to access external resources such as Databricks REST API, Azure services, etc. This is usually the project service principal, same as the job runas account
+      azure_subscription_id: "7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc"
+      azure_tenant_id: "164f988b-a2f4-4584-aeaa-21bd4a0234bc"
+
+      # Databricks workspace URL, resource ID, and job ID for internal ingestion job calls
+      internal_databricks_workspace_url: "https://adb-13344226264609.9.azuredatabricks.net/"
+      internal_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-stgplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-stguc01"
+      external_databricks_workspace_url: "https://adb-7405606501311182.2.azuredatabricks.net"
+      external_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-stgplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-stgdmz01"
+
+      # Datamart endpoints for publishing time series data, stored as a JSON string if there are multiple endpoints.
+      datamart_endpoints: '[{"URL":"https://api-stg.bank-banque-canada.ca/datamart/v1/api/uc/pipeline/ingest","SCOPE":"api://22c7a03f-742e-457a-a90a-5008c243e925/.default"}]'
+
+      # DataBridge ingestion service settings
+      internal_dis_job_id: "565024403075417"
+      external_dis_job_id: "678386440178716"
+      dis_av_root: "https://lakecacprdststgavscan01.blob.core.windows.net/avscan-${var.project.tag}"
+      dis_oedisext_client_id_key: "app-2ac5ddfe-765c-4a6a-9630-c9e4077ec85c-appid"
+      dis_oedisext_client_secret_key: "app-2ac5ddfe-765c-4a6a-9630-c9e4077ec85c-secret"
+
+  prd:
+    mode: production
+    workspace:
+      host: https://adb-642333651898149.9.azuredatabricks.net
+    variables:
+      debug: false  
+      sql_warehouse_id: "8132940984a8731d"
+      support_ad_group: "lake_aeengsupport_rusr_inpa"
+      # lake-prd-oedataservices-services
+      job_runas_account: "9a4da41a-bd6d-4773-99ce-2ba8b78f4d65"
+      job_alert_emails:
+        - dda-support@bank-banque-canada.ca
+        - DataLakeMonitoring-PRD@bank-banque-canada.ca
+      job_permissions:
+        - group_name: "lake_aeengsupport_rusr_inpa"
+          level: CAN_MANAGE
+        # lake-prd-oedataservices-services
+        - service_principal_name: "9a4da41a-bd6d-4773-99ce-2ba8b78f4d65"
+          level: CAN_MANAGE_RUN
+        - group_name: "lake_dmengineer_rusr_inpa"
+          level: CAN_MANAGE_RUN
+      email_mappings: '{"DDA":"dda-support@bank-banque-canada.ca","DM":"DataLakeMonitoring-PRD@bank-banque-canada.ca","TRITONSUPPORT":"triton-support@bank-banque-canada.ca"}'
+      # lake-prd-oedataservices-services
+      service_spn_id_key: "app-9a4da41a-bd6d-4773-99ce-2ba8b78f4d65-appid"
+      service_spn_secret_key: "app-9a4da41a-bd6d-4773-99ce-2ba8b78f4d65-secret"
+
+      # Job cluster policy ID for the jobs to create job clusters under
+      job_cluster_policy_id: "00113606D4E7542D"
+
+      # Job high performance cluster policy ID for the jobs to create job clusters under
+      job_high_performance_cluster_policy_id: "0001B7D3C9D8F10F"
+
+      # Service account used to access external resources such as Databricks REST API, Azure services, etc. This is usually the project service principal, same as the job runas account
+      azure_subscription_id: "7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc"
+      azure_tenant_id: "164f988b-a2f4-4584-aeaa-21bd4a0234bc"
+
+      # Databricks workspace URL, resource ID, and job ID for internal ingestion job calls
+      internal_databricks_workspace_url: "https://adb-642333651898149.9.azuredatabricks.net/"
+      internal_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-prdplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-prduc01"
+      external_databricks_workspace_url: "https://adb-7405611475617935.15.azuredatabricks.net"
+      external_databricks_resource_id: "/subscriptions/7c0bb47c-1b9b-4cb9-adbc-344efbe85bbc/resourceGroups/lake-cac-prd-rg-prdplatform/providers/Microsoft.Databricks/workspaces/lake-cac-prd-dbw-prddmz01"
+
+      # Datamart endpoints for publishing time series data, stored as a JSON string if there are multiple endpoints.
+      datamart_endpoints: '[{"URL":"https://api.bank-banque-canada.ca/datamart/v1/api/uc/pipeline/ingest","SCOPE":"api://a685fe05-33c2-4c83-b97e-c5a0981bbb4b/.default"},{"URL":"https://api-cae.bank-banque-canada.ca/datamart/v1/api/uc/pipeline/ingest","SCOPE":"api://8b1fcf20-b910-4ec7-a653-d040bb5b2879/.default"}]'
+
+      # DataBridge ingestion service settings
+      internal_dis_job_id: "836895969479883"
+      external_dis_job_id: "34234643609149"
+      dis_av_root: "https://lakecacprdstprdavscan01.blob.core.windows.net/avscan-${var.project.tag}"
+      dis_oedisext_client_id_key: "app-94eed500-aef7-45e4-8f4f-f8a0cbfaf24f-appid"
+      dis_oedisext_client_secret_key: "app-94eed500-aef7-45e4-8f4f-f8a0cbfaf24f-secret"
+

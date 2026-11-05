@@ -1,0 +1,40 @@
+{
+  "pipeline": "dvr_swift_rdrive_copy",
+  "tasks": [
+    {
+      "id": "download",
+      "handler": "oedis.handler.storage.download",
+      "params": {
+        "connection": {
+          "uri": [[ archive_root | tojson ]]
+        },
+        "requests": [
+          {
+            "include": [[ file_names | tojson ]],
+            "recursive": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "upload_smb",
+      "handler": "oedis.handler.smb.upload",
+      "params": {
+        "connection": {
+          "unc": [[ r_drive_path | tojson ]],
+          "auth": {
+            "username": "bocad\\triton_s",
+            "password": "{{ keyvault(scope='lake-kv-triton-scope', key='service-account-cred') }}"
+          }
+        },
+        "requests": [
+          {
+            "include": [[ file_names | tojson ]],
+            "recursive": false,
+            "delete_source_file": false
+          }
+        ]
+      }
+    }
+  ]
+}

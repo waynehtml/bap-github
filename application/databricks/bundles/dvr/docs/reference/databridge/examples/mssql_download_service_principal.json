@@ -1,0 +1,29 @@
+{
+  "id": "mssql_download_service_principal",
+  "handler": "oedis.handler.mssql.download",
+  "params": {
+    "connection": {
+      "host": "example.database.windows.net",
+      "port": 1433,
+      "database": "Operations",
+      "auth": {
+        "type": "service_principal",
+        "client_id": "{{ keyvault(scope='dis-secrets', key='mssql-client-id') }}",
+        "client_secret": "{{ keyvault(scope='dis-secrets', key='mssql-client-secret') }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "customers_parquet",
+        "table": "dbo.customers",
+        "format": "parquet",
+        "file": "exports/customers.parquet",
+        "write": {
+          "options": {
+            "compression": "snappy"
+          }
+        }
+      }
+    ]
+  }
+}

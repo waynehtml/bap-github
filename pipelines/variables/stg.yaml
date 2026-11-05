@@ -1,0 +1,21 @@
+# Non-secret configuration for the stg deployment environment.
+variables:
+  - name: databricks-DMZ-host
+    value: 'https://adb-7405606501311182.2.azuredatabricks.net'
+    readonly: true
+
+  - name: databricks-UC01-host
+    value: 'https://adb-13344226264609.9.azuredatabricks.net'
+    readonly: true
+
+  - name: service_connection
+    value: 'lake-dscn-stgbocad01'
+    readonly: true
+
+  - name: storage_land01
+    value: 'lakecacprdststgland01'
+    readonly: true
+
+  - name: storage_land02
+    value: 'lakecacprdststgland02'
+    readonly: true

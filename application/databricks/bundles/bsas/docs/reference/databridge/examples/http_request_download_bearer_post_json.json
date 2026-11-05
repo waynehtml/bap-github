@@ -1,0 +1,34 @@
+{
+  "id": "http_request_json",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "auth": {
+        "type": "bearer",
+        "token": "{{ keyvault(scope=\"dis-secrets\", key=\"http-bearer-token\") }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "create_report",
+        "method": "POST",
+        "path": "reports",
+        "body": {
+          "type": "json",
+          "value": {
+            "date": "{{ runtime.rundate }}"
+          }
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201
+          ],
+          "save_to": "raw/report.json"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,593 @@
+# GitHub Copilot Guide
+
+DataForge includes repository instructions, skills, prompts, and path-specific
+instructions that help GitHub Copilot work consistently with the template.
+This guide explains the function and usage of every customization. The source
+files under `.github/` remain authoritative for their detailed behavior.
+
+## Repository Instructions
+
+### `.github/AGENTS.md`
+
+Source:
+[`.github/AGENTS.md`](../../.github/AGENTS.md)
+
+#### Function
+
+Requires every Copilot customization to remain synchronized with this guide
+and standardizes `conf/oeds/config/<area>` and `oeds.config.<area>` in
+customization content.
+
+#### Usage
+
+Applies whenever a file under `.github` is changed. Update the corresponding
+section in this guide and preserve the canonical configuration layout and
+namespace.
+
+### `copilot-instructions.md`
+
+Source:
+[`.github/copilot-instructions.md`](../../.github/copilot-instructions.md)
+
+#### Function
+
+Provides repository-wide DataForge context to Copilot. It directs Copilot to
+follow the project `AGENTS.md` files, use the initialization, table-reference,
+managed-source upgrade, DataForge release, and release-tagging skills,
+invoke reference
+synchronization only when explicitly
+requested, keep bundle configuration aligned, preserve the `conf` and `src`
+source-root boundaries, and verify DataKit and DataBridge contracts against the
+vendored references. Invoking `/release-dataforge` counts as an explicit sync
+request for that release preparation. Project initialization runs once; later
+configuration edits maintain the project YAML and `common.py` directly.
+
+#### Usage
+
+No explicit invocation is required. Copilot applies this file automatically
+when working in the DataForge repository. Keep it focused on rules that should
+apply broadly; use a skill for a task-specific workflow and a path-specific
+instruction for rules that apply only to selected files.
+
+## Skills
+
+### `/init-project`
+
+Source:
+[`.github/skills/init-project/SKILL.md`](../../.github/skills/init-project/SKILL.md)
+
+#### Function
+
+Creates `databricks.yml` once in a copied project by initializing the complex
+`project` object and resolving template placeholders from `default.databricks.yml`,
+adjacent comment mappings, and confirmed user inputs. It interprets
+each placeholder's standard comment metadata, including required status and
+the allowed `options`, `infer`, or `input` modes. General always confirms project
+identity and resolves mapped domain settings, including app scope. It then asks "Set up
+jobs?" and later "Set up a Databricks App?" before each optional section.
+Declining skips that section; both may be declined. With jobs enabled, it discovers each job's
+purpose and required status from leading comment metadata, automatically enables
+required jobs, allows any number of optional selections, and writes explicit
+job includes plus `resources/jobs/common.yml`, which is excluded from job discovery.
+The `mapping` comments beside individual variables in that file own domain/target run-as accounts,
+alert recipients, and permission lists. The skill fills its target variables
+from the confirmed domain without separate prompts, preserves native list types,
+and rejects incomplete mappings or conflicting overrides. Disabled Job Setup
+skips this mapping entirely.
+Within enabled Job Setup, SERVICE is required; DATAFLOW, CURATION, and OPERATION remain
+optional. Selecting none retains SERVICE. It
+preserves the default file's comments and order. After Job Setup completes or is declined,
+it offers optional Databricks App setup: provide an app name, confirm the inferred
+lowercase name and description, and automatically resolve target SPN secret key
+names from `app_spn_keys` comments in `resources/apps/main.yml` using the selected
+domain. Manually replace the selected domain's `REPLACE_ME_...` entries with
+existing key names first. Missing or unresolved selected mappings and conflicting
+overrides stop setup; unselected domains may retain placeholders. There are no
+separate key-entry or confirmation prompts. Confirmed setup populates and includes the app YAML and enables app source
+synchronization. The app YAML also owns app deployment scripts. Declining
+preserves app exclusions, skips app inputs, and removes app script names from
+deployment selections. `resources/script.yml` always supplies shared hooks and
+DataBench publishing. It also
+synchronizes matching `common.py` fallback values, including direct Azure and
+Databricks integration values in `DEFAULT_*` constants. Datamart and credential
+settings retain secret-key names in `DEFAULT_*_KEY` constants without resolving
+secrets during initialization. The skill preserves
+`conf/oeds/config`, displays and preserves `.dataforge/manifest.yml`
+provenance when available, and checks bundle, import-path, and enabled-job
+consistency. After all validation succeeds, it removes only the copied
+`default.databricks.yml`. Legacy domain YAML files are not read or removed. It preserves the canonical
+DataForge template files and retains the copied default when generation or
+validation fails. A cleanup failure reports the error and pending source path.
+
+General setup also uses adjacent variable mappings for the app/project scopes,
+service SPN key names, and email mappings in default.databricks.yml. These are
+literal domain-only scope values and domain/target SPN and email values,
+independent of project.tag and optional setup
+choices. The same mapping reader handles Job variables when Job Setup is enabled.
+Scope defaults are inherited by all targets without overrides. Target-specific
+root defaults and matching common.py fallbacks use resolved dev values; email
+mappings remain JSON strings. Conflicting overrides are reported.
+The app scope resolves in General even when App Setup is declined. General
+mapping results go into generated `databricks.yml`; the source default remains
+unchanged until cleanup. Enabled Job mapping results stay in the copied
+`resources/jobs/common.yml`. Validation checks active YAML values across all
+included resources, while allowing placeholders in preserved metadata comments
+and disabled resource files.
+
+Script selections are filtered using structured `script_rules` comments beside
+the two deployment-script variables. Edit the YAML metadata to change target
+restrictions or Job/App dependencies; the skill preserves order and never adds
+unselected scripts. Rules are applied after overrides and both setup decisions.
+
+#### Usage
+
+Ask Copilot to use `/init-project` when initializing a copied DataForge project.
+It stops if `databricks.yml` already exists, without overwriting it or deleting
+templates. Maintain later configuration changes directly in project YAML and
+corresponding `common.py` fallbacks. Copilot discovers required values and
+their allowed resolution methods from the comments beside each placeholder. It
+first displays the created-from and last-applied DataForge versions when
+`.dataforge/manifest.yml` exists, or reports that metadata is unavailable. It
+validates choices, applies only documented inference rules,
+requests shared inputs, then offers Job Setup. If accepted, it displays each
+job once in a required or optional
+Markdown checklist, and asks for optional job keys as a comma-separated
+response or `none`. It never constructs combined job choices. Copilot then
+shows inferred identities for enabled jobs as editable defaults. Before optional app
+setup, it presents the complete compute choice list declared in
+the default YAML's Compute settings comments and applies one selection to all
+enabled jobs. Central choices are DataBoot folder names; the local choice includes
+the template runtime's major.minor version, such as `classic-local-16.4`, while
+keeping the full runtime value unchanged. Both `compute_config_name` placeholders are
+resolved at this step: the selected type uses its chosen folder, and unused types
+use the catalog's central defaults. Central classic also aligns the runtime and
+`common.py` fallback, reporting conflicting path or runtime overrides. The copied
+project needs no DataBoot checkout. An explicit valid selection is accepted
+without asking again; otherwise the recommendation requires a response.
+After either classic compute choice, Copilot reads the `job_cluster_policy`
+comment metadata beside `compute_classic_job_policy_id` and asks for regular job
+cluster (default) or high performance job cluster, unless the request already
+supplies a valid choice. It waits for a response, then sets the single policy
+variable's dev/stg/prd values from the selected option for all enabled jobs.
+Both classic cluster references stay unchanged. Serverless skips this prompt and
+preserves regular defaults. Conflicting explicit policy overrides
+require resolution. If Job Setup is declined, no job YAML is included or changed;
+unused root compute paths resolve from declared defaults without compute prompts.
+Validation and source-template cleanup follow the independent App Setup decision.
+It also verifies that project configuration remains available through
+`oeds.config` after initialization.
+
+### `/upgrade-dataforge`
+
+Source:
+[`.github/skills/upgrade-dataforge/SKILL.md`](../../.github/skills/upgrade-dataforge/SKILL.md)
+
+#### Function
+
+Overlays the `.github`, `docs`, `examples`, `tools`, and `src` trees in an
+initialized project from a developer-confirmed tagged DataForge release. It
+overwrites matching managed files, preserves project-only files, safely
+handles files removed upstream, restores managed files deleted from the
+project, and checks code outside those roots for concrete library API impacts.
+It updates `.dataforge/manifest.yml` `last_applied_version` while preserving
+`created_from_version` and refreshes `.dataforge/CHANGELOG.md` from the
+validated target release. It does not synchronize
+bundle configuration, project configuration, job definitions, or task
+notebooks, and it never reads or changes the project's root changelog.
+
+#### Usage
+
+Ask Copilot to use `/upgrade-dataforge` and provide the target stable DataForge
+version or `releases/dataforge-v<version>` tag. Confirm the version currently
+applied to the five managed roots or provide its exact source tag. Current
+baselines may use the namespaced tag, the legacy `dataforge-v<version>` tag, or
+any other exact developer-supplied tag whose canonical metadata matches the
+confirmed version. The generated project and both compared releases must
+already contain `.dataforge/manifest.yml` and `.dataforge/CHANGELOG.md`;
+alternative metadata layouts are unsupported. Review the pinned commit
+summary, overwritten or restored project files, upstream removals, collisions,
+the proposed `last_applied_version` and DataForge changelog updates, and
+compatibility edits before confirming application. Copilot preserves the
+business logic in `jobs/**/task_*.py` and changes a task only when a specific
+upgraded library contract requires a minimal compatibility edit. If the overlay
+updates this skill, the instructions loaded at the start remain authoritative
+until the current run completes.
+
+### `/create-table`
+
+Source:
+[`.github/skills/create-table/SKILL.md`](../../.github/skills/create-table/SKILL.md)
+
+#### Function
+
+Creates one table reference under `conf/oeds/config/schema` after at most
+three quick questions: an optional `tbl_<reference_name>` reference, a full
+table name, and an optional schema. The reference is the code-facing name for
+the actual table and can resolve to its full table name. A supplied full name
+uses `catalog.database.table` form, and a leading `{env}_` catalog prefix is
+stripped. The skill parses schema formats with best effort, adds the five
+standard audit columns, and changes no dependent project files.
+
+#### Usage
+
+Ask Copilot to use `/create-table`. For the first prompt, provide the code
+reference, such as `tbl_customer`, or reply `no` to use `tbl_table_name`. For
+the second, provide `catalog.database.table` or reply `no` to use location
+placeholders. A leading `{env}_` catalog prefix is stripped. For the third,
+paste SQL DDL, Spark `StructType`, JSON, Avro, a column list, or another
+schema; reply `no` to create only the audit fields. Copilot creates the
+reference without more questions and leads its completion message with the
+exact file path. It protects an existing target rather than overwriting it.
+
+### `/create-view`
+
+Source:
+[`.github/skills/create-view/SKILL.md`](../../.github/skills/create-view/SKILL.md)
+
+#### Function
+
+Creates one view reference under `conf/oeds/config/schema` after three quick
+questions: the code-facing reference, full view name, and SELECT query. The
+`vw_` and `vwu_` prefixes are preferred, but any lowercase `snake_case` name
+is allowed. The skill strips a leading `{env}_` catalog prefix, validates
+registered schema placeholders, and uses a safe empty-result TODO query when
+supplied SQL is missing or unusable.
+
+#### Usage
+
+Ask Copilot to use `/create-view`. Provide a lowercase `snake_case` reference,
+then a `catalog.database.view` name, and finally one `SELECT` query or a `WITH`
+query ending in `SELECT`. Prefer `vw_` or `vwu_`, but alternate prefixes and
+unprefixed names are preserved. Paste only the query body because DataForge
+generates the `CREATE OR REPLACE VIEW` statement. The skill rejects DDL, DML,
+multiple statements, wildcard projections, and unknown schema placeholders.
+It creates one reference file, reports its exact path, and does not deploy it.
+
+### `/config-ingest`
+
+Source:
+[`.github/skills/config-ingest/SKILL.md`](../../.github/skills/config-ingest/SKILL.md)
+
+#### Function
+
+Creates one ingestion JSON configuration under `conf/oeds/config/ingest` with a
+download task, optional ordered transformations and file validation, and an
+upload task. Uses the vendored DataBridge contracts and project-specific secret
+references, and checks staging paths and task parameters without running a job.
+
+#### Usage
+
+Ask Copilot to use `/config-ingest`. Provide a filename (default `default.json`),
+pipeline display name (default resolved bundle name), source and destination
+protocols/settings, and any transformations in order. Supply secret key names,
+not secret values. The skill asks for missing details and whether to replace
+an existing file or use another name. Unavailable values become explicit
+placeholders in a draft. It reports the created file, task sequence, static
+checks, and unresolved inputs; it does not deploy or execute ingestion.
+
+### `/release-project`
+
+Source:
+[`.github/skills/release-project/SKILL.md`](../../.github/skills/release-project/SKILL.md)
+
+#### Function
+
+Prepares project-root `VERSION` and `CHANGELOG.md` for a project generated from
+DataForge. It infers the project name from the project root folder, recommends
+a semantic version from committed project changes, and writes confirmed release
+notes. Project versions are independent of DataForge provenance and bundled
+libraries. The skill leaves the files uncommitted on the current branch; it
+does not create branches, publish PRs or tags, deploy, or manage release notebooks.
+Use `/release-dataforge` for canonical template releases and the
+[Release Guide](G111-release-guide.md) for deployment and release notebooks.
+
+#### Usage
+
+Ask Copilot to use `/release-project` from an initialized project or one of its
+subdirectories, or provide the project location. Start with a clean checkout
+on any named branch, including a feature branch or `develop`; remote alignment
+is not required. The folder name may differ from the bundle name. Confirm the
+recommended version and proposed notes, then review the changed files and
+validation results. The initial recommendation is `1.0.0` when both release
+files are absent. Subsequent releases use a local project release tag or an
+unambiguous version-history baseline. Committing and publishing are separate
+actions.
+
+### `/tag-project`
+
+Source:
+[`.github/skills/tag-project/SKILL.md`](../../.github/skills/tag-project/SKILL.md)
+
+#### Function
+
+Publishes an annotated `releases/<project>-v<version>` tag for a project
+initialized from DataForge. It derives the project name from the project
+folder and the version from committed project-root `VERSION`, then includes
+the complete matching `CHANGELOG.md` section in the annotation. It accepts any
+named current branch whose HEAD matches the same branch on `origin`. GitHub
+uses the annotated-tag API; Azure DevOps uses an annotated Git tag and an
+exact-ref push. It does not change metadata, publish branches or PRs, or deploy.
+
+#### Usage
+
+After `/release-project`, separately commit and push the release metadata.
+Invoke `/tag-project` from the initialized project, a nested directory, or with
+an explicit project location. Start with a clean repository, including
+untracked files. Review the project and bundle names, version, current branch,
+exact tag, full pinned commit, annotation, and validation results, then confirm
+publication unless that exact proposal is already approved. The skill rejects
+remote collisions and can reuse only an exact matching annotated local tag
+from an interrupted Azure DevOps push. Use `/tag-dataforge` for the canonical
+template instead.
+
+### `/release-dataforge`
+
+Source:
+[`.github/skills/release-dataforge/SKILL.md`](../../.github/skills/release-dataforge/SKILL.md)
+
+#### Function
+
+Prepares and merges a release of the canonical DataForge template. It
+determines the current release baseline, recommends the next semantic version,
+synchronizes the vendored DataKit and DataBridge references, drafts
+major-update notes for confirmation, updates `.dataforge/CHANGELOG.md` and
+`.dataforge/manifest.yml`, validates the result, and completes the release pull
+request. It never creates the release tag or handles release notebooks in
+generated projects.
+
+#### Usage
+
+Ask Copilot to use `/release-dataforge`. Accept or replace its recommended
+version, review and confirm the proposed major-update bullets, then review the
+validated final file summary. A separate final confirmation authorizes the
+skill to stage, commit, push, and merge the release pull request. After the
+merge, invoke `/tag-dataforge` as a separate step.
+
+### `/tag-dataforge`
+
+Source:
+[`.github/skills/tag-dataforge/SKILL.md`](../../.github/skills/tag-dataforge/SKILL.md)
+
+#### Function
+
+Publishes the annotated `releases/dataforge-v<version>` tag for the DataForge
+version already merged on `main`. It validates `.dataforge/manifest.yml`,
+`.dataforge/CHANGELOG.md`, local and remote main alignment, version ordering,
+and exact-tag absence without changing tracked files. GitHub publication uses
+the provider API, while Azure DevOps uses a local annotated tag and an exact
+Git refspec push.
+
+#### Usage
+
+Ask Copilot to use `/tag-dataforge` after the release pull request is
+merged and local `main` is clean and synchronized. Review the derived version,
+exact tag, annotation (including the matching changelog release section),
+and full pinned commit, then explicitly confirm tag
+publication. On Azure DevOps, the skill verifies the local tag object and
+remote peeled commit through Git and can reuse an exact matching local tag from
+an interrupted push. The skill does not prepare releases, change metadata,
+create a provider Release object, or deploy DataForge.
+
+### `/sync-references`
+
+Source:
+[`.github/skills/sync-references/SKILL.md`](../../.github/skills/sync-references/SKILL.md)
+
+#### Function
+
+Synchronizes or verifies DataForge's vendored DataKit API and guide directories
+and its DataBridge documentation and examples. It discovers sibling source projects,
+checks that DataKit's generated API reference is current, performs exact
+recursive comparisons, and limits stale-file removal to four managed
+destinations. The skill contains instructions only and uses filesystem
+operations appropriate for the current platform.
+
+#### Usage
+
+Explicitly ask Copilot to use `/sync-references` and state whether to sync
+or check only. Sync mode copies changed and missing files unchanged, removes
+destination-only files inside the managed directories, and verifies the final
+state. Check mode reports differences without writing. Do not invoke this skill
+automatically after a DataKit or DataBridge change.
+
+## Path-Specific Instructions
+
+Path-specific instructions are applied automatically when Copilot works on a
+file matching the `applyTo` pattern in the instruction's frontmatter.
+
+### `shared-apis.instructions.md`
+
+Source:
+[`.github/instructions/shared-apis.instructions.md`](../../.github/instructions/shared-apis.instructions.md)
+
+#### Function
+
+Guides API discovery and ownership for Python and notebook changes. It directs
+Copilot to prefer DataForge domain utilities for project-specific behavior and
+documented `oeds.core` APIs for generic shared behavior before creating a new
+implementation.
+
+#### Usage
+
+Applies automatically to `**/*.py` and `**/*.ipynb`. When selecting an API,
+Copilot checks the DataForge utility catalog, the versioned DataKit reference,
+the project configuration catalog, relevant source, examples, and tests. It
+distinguishes reusable APIs from project definitions and reports missing or
+conflicting contracts instead of guessing an API.
+
+### `project-config.instructions.md`
+
+Source:
+[`.github/instructions/project-config.instructions.md`](../../.github/instructions/project-config.instructions.md)
+
+#### Function
+
+Defines the ownership, package layout, validation, security, and documentation
+rules for project configuration.
+
+#### Usage
+
+Applies automatically to files under `conf/oeds/config/`. Copilot keeps
+configuration importable through `oeds.config`, places reusable behavior under
+`src/oeds/domain/utils`, and updates the configuration catalog and owning
+developer guide when contracts change.
+
+### `task-00-main.instructions.md`
+
+Source:
+[`.github/instructions/task-00-main.instructions.md`](../../.github/instructions/task-00-main.instructions.md)
+
+#### Function
+
+Defines the orchestration boundary for the dataflow workflow task. It keeps
+run-level decisions, processing dates, shared paths, early completion, and
+downstream task values in the main task.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_00_main.py`. Copilot reads the job
+definition and dataflow workflow guide before changing the task. Calendar behavior
+also requires the calendar guide. Processing work belonging to downstream
+stages must not be added here.
+
+### `task-10-ingest.instructions.md`
+
+Source:
+[`.github/instructions/task-10-ingest.instructions.md`](../../.github/instructions/task-10-ingest.instructions.md)
+
+#### Function
+
+Defines the ingestion task boundary and its configuration sources of truth. It
+keeps DataBridge orchestration separate from DataForge client preparation,
+submission, result handling, and verification.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_10_ingest.py` and ingestion JSON
+configuration under `conf/oeds/config/ingest/`. Copilot checks the
+workflow and DataBridge client guides, the default configuration, and version-matched
+DataBridge schemas before changing ingestion behavior.
+
+### `task-20-land-to-raw.instructions.md`
+
+Source:
+[`.github/instructions/task-20-land-to-raw.instructions.md`](../../.github/instructions/task-20-land-to-raw.instructions.md)
+
+#### Function
+
+Defines the land-to-raw stage boundary and preserves the required
+validate-before-copy behavior. It keeps parsing, standardization, business
+validation, and table loading in later stages.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_20_land_to_raw.py`. Copilot uses the
+workflow guide, land-to-raw guide, landing-zone practices, and current task
+implementation to select supported validation and copy behavior. Landing files
+are copied, not moved or deleted.
+
+### `task-30-raw-to-std.instructions.md`
+
+Source:
+[`.github/instructions/task-30-raw-to-std.instructions.md`](../../.github/instructions/task-30-raw-to-std.instructions.md)
+
+#### Function
+
+Defines the raw-to-standardized stage order: read, transform, add audit data,
+validate, then load. It preserves registered source and target contracts,
+required and recommended audit columns, and idempotent batch behavior.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_30_raw_to_std.py`. Copilot consults
+the workflow, raw-to-standardized, datafile, and DataFrame validation guides
+before selecting documented APIs. Parsing, transformation, or validation
+failures must occur before writing.
+
+### `task-40-std-to-curated.instructions.md`
+
+Source:
+[`.github/instructions/task-40-std-to-curated.instructions.md`](../../.github/instructions/task-40-std-to-curated.instructions.md)
+
+#### Function
+
+Defines the standardized-to-curated boundary while preventing Copilot from
+inventing business rules. It requires an explicit source, target, output grain,
+transformation, and write contract.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_40_std_to_curated.py`. Copilot uses
+the workflow guide, template guide, registered schemas, and developer
+requirements. It asks for missing curated requirements instead of deriving
+them from filenames or neighboring tasks.
+
+### `task-50-integrate.instructions.md`
+
+Source:
+[`.github/instructions/task-50-integrate.instructions.md`](../../.github/instructions/task-50-integrate.instructions.md)
+
+#### Function
+
+Defines the DataFlow integration boundary while preserving the successful
+no-op placeholder until the source, consumer, output contract, delivery target,
+and retry behavior are explicit.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_50_integrate.py`. Copilot uses the
+DataFlow workflow and template guides, and consults the DataBridge reference
+before adding DataBridge delivery. It keeps curated transformations in
+`std_to_curated` and does not copy the independent Curation integration task.
+
+### `task-90-on-complete.instructions.md`
+
+Source:
+[`.github/instructions/task-90-on-complete.instructions.md`](../../.github/instructions/task-90-on-complete.instructions.md)
+
+#### Function
+
+Defines the successful-completion handler boundary. It limits the task to
+idempotent completion actions such as notification, audit recording, safe
+cleanup, or explicitly requested downstream triggers.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_90_on_complete.py`. Copilot checks the
+workflow definition and dataflow workflow guide. When email is requested, it also
+uses the email guide and DataForge example rather than constructing transport
+payloads directly.
+
+### `task-91-on-failure.instructions.md`
+
+Source:
+[`.github/instructions/task-91-on-failure.instructions.md`](../../.github/instructions/task-91-on-failure.instructions.md)
+
+#### Function
+
+Defines the failure-handler boundary and preserves the original processing
+failure as the primary troubleshooting signal. It limits added behavior to
+failure notification, incident or audit recording, and safe cleanup.
+
+#### Usage
+
+Applies automatically to `jobs/dataflow/task_91_on_failure.py`. Copilot checks the
+workflow and dataflow workflow guide. Email behavior also requires the email guide
+and example. Notification or cleanup failures must not obscure the original
+pipeline failure.
+
+## Maintaining This Guide
+
+The [Copilot customization instructions](../../.github/AGENTS.md) require this
+guide to be updated whenever `copilot-instructions.md`, a skill, a prompt, or a
+path-specific instruction is added, changed, renamed, or removed.
+
+For each customization:
+
+1. Keep its source link accurate.
+2. Describe what it controls under `Function`.
+3. Describe how it is invoked or automatically applied under `Usage`.
+4. Include required inputs and expected results when they help a developer use
+   the customization.
+5. Keep detailed implementation rules in the authoritative `.github` source
+   file rather than copying them into this guide.

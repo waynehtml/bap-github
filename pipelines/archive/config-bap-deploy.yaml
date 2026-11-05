@@ -1,0 +1,64 @@
+# --------------------------------------------------------------------------------------------------------------------
+# To migrate this pipeline to another project/repo, in the variables section, update:
+# 1. blob_container: change if your new project uses a different target container in the storage account.
+# 2. base_config_folder: update this if your config folder path is different.
+# 3. dev-land01: update this to your dev land01 storage account.
+# 4. dev-land02: update this to your dev land02 storage account.
+# 5. stg-land01: update this to your stg land01 storage account.
+# 6. stg-land02: update this to your stg land02 storage account.
+# 7. prd-land01: update this to your prd land01 storage account.
+# 8. prd-land02: update this to your prd land02 storage account.
+# 9. pool_name: use the appropriate agent pool for the new project.
+# 10. sc_dev: update this to your dev service connection.
+# 11. sc_stg: update this to your stg service connection.
+# 12. sc_prd: update this to your prd service connection.
+# --------------------------------------------------------------------------------------------------------------------
+
+trigger: none # DO NOT CHANGE
+
+# Variables that you need to change as per your project
+variables:
+  blob_container: 'config-bap' # Blob Container where you want to upload the config files
+  base_config_folder: 'application/config' # Folder where the config files are stored
+
+  # Storage account variable map based on storage_account parameter
+  dev-land01: 'lakecacnpdstdevland01'
+  stg-land01: 'lakecacprdststgland01'
+  prd-land01: 'lakecacprdstprdland01'
+
+  # Name of pool you want to use
+  pool_name: 'dops-prdagntpl01' 
+
+  # Service connection variable map based on storage_target
+  sc_dev: lake-dscn-bocqa01
+  sc_stg: lake-dscn-stgbocad01
+  sc_prd: lake-dscn-prdbocad01
+
+# Input parameter for selecting environment
+parameters:
+  - name: storage_target
+    displayName: Target Environment - Landing Zone
+    type: string
+    default: dev-land01
+    values:
+      - dev-land01
+      - stg-land01
+      - prd-land01
+
+resources:
+  repositories:
+    - repository: lake-devops                     # Reference shared DevOps repo
+      name: lake-devops/lake-devops
+      type: git
+      ref: refs/heads/main                        # Use correct branch - main
+
+# Reuse the shared config-deploy-template from lake-devops
+stages:
+  - template: pipelines/config/config-deploy-template.yaml@lake-devops
+    parameters:
+      storage_target: ${{ variables[parameters.storage_target] }} # Extract the storage account name from the variable created above
+      environment: ${{ split(parameters.storage_target, '-')[0] }} # Extract environment (dev/stg/prd) from parameter
+      blob_container: ${{ variables.blob_container }} # Get the blob_container from the variable created above
+      base_config_folder: ${{ variables.base_config_folder }} # Referencing the base_config_folder variable created above
+      pool_name: ${{ variables.pool_name }} # Get the pool_name from the variable created above
+      service_connection: ${{ variables[format('sc_{0}', split(parameters.storage_target, '-')[0])] }} # Dynamically extract prefix (dev/stg/prd) from storage_target parameter to lookup service connection

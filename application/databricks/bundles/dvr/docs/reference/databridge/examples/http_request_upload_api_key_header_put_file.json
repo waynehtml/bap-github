@@ -1,0 +1,38 @@
+{
+  "id": "upload_binary_api_key",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "api_key",
+        "location": "header",
+        "name": "X-API-Key",
+        "value": "{{ keyvault(scope=\"dis-secrets\", key=\"http-api-key\") }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "upload_archive",
+        "method": "PUT",
+        "path": "archives/daily",
+        "body": {
+          "type": "file",
+          "path": "prepared/report.zip",
+          "content_type": "application/zip"
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201
+          ],
+          "save_to": "receipts/binary-api-key.json"
+        }
+      }
+    ]
+  }
+}

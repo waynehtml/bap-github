@@ -1,0 +1,56 @@
+{
+  "providers": [
+    {
+      "create": true,
+      "short_name_en": "BoC",
+      "short_name_fr": "BoC",
+      "name_en": "Bank of Canada",
+      "name_fr": "Banque du Canada",
+      "description_en": "Provider Source",
+      "description_fr": "Provider Source",
+      "org_type": "Commercial",
+      "datasets": [
+        {
+          "create": true,
+          "name_en": "template.ds1",
+          "name_fr": "template.ds1",
+          "description_en": "template.ds1",
+          "description_fr": "template.ds1",
+          "boc_contact": "DDS-Data Management",
+          "source_type": "Internal",
+          "confidentiality_status": "Public - Free usage of data",
+          "raw_location": null,
+          "destination_uc_tables": {
+            "tbl_ts": "[[destination_uc_table]]"
+          },
+          "series": [
+            {
+              "provider_series_name": "template.ts1",
+              "description_en": "Template time series",
+              "description_fr": "Template time series",
+              "basis": "Business",
+              "frequency": "Business",
+              "observed_method": "Averaged",
+              "data_type": "Precision",
+              "number_of_decimals": 4,
+              "generation_method": "Data Feed",
+              "magnitude": null,
+              "status": "Active",
+              "unit_of_measure": "Rate",
+              "priority_ind": 0,
+              "dissemination_to_fame_ind": 1,
+              "alias_list": [],
+              "seasonally_adjusted": null,
+              "statcan_coordinates": null,
+              "object_class": "Series",
+              "misc_fields": {
+                "publish_to_webmart": "true"
+              },
+              "destination_uc_table": "[[destination_uc_table]]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "azure-blob-download",
+  "handler": "oedis.handler.azureblobstorage.download",
+  "params": {
+    "connection": {
+      "uri": "https://mystorageaccount.blob.core.windows.net/partner-dropzone/incoming",
+      "tenant_id": "{{ keyvault(scope='oedis-kv', key='azure-tenant-id') }}",
+      "client_id": "{{ keyvault(scope='oedis-kv', key='azure-blob-client-id') }}",
+      "client_secret": "{{ keyvault(scope='oedis-kv', key='azure-blob-client-secret') }}"
+    },
+    "requests": [
+      {
+        "src_dir": "daily",
+        "dst_dir": "raw/partner",
+        "include": [
+          "*.csv"
+        ],
+        "exclude": [
+          "*.tmp"
+        ],
+        "recursive": true
+      }
+    ]
+  }
+}

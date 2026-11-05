@@ -1,0 +1,87 @@
+# Copy this generic wrapper into a domain repository and register it as a pipeline.
+# The domain repository must provide matching files under /pipelines/variables/.
+
+# Dependent repository variable templates:
+# - /pipelines/variables/common.yaml:
+#   - databricks_resource_id
+#   - agent_pool_name
+#   - agent_image
+#   - databricks_nexus_url
+# - /pipelines/variables/dev.yaml, /pipelines/variables/stg.yaml, and /pipelines/variables/prd.yaml:
+#   - service_connection
+#   - databricks-DMZ-host
+#   - databricks-UC01-host
+
+trigger: none
+pr: none
+
+parameters:
+  - name: bundle_path
+    displayName: Bundle Path
+    type: string
+    default: application/databricks/bundles/
+
+  - name: target_wks
+    displayName: Target Workspace
+    type: string
+    default: UC01
+    values:
+      - UC01
+      - DMZ
+
+  - name: target_env
+    displayName: Target Environment
+    type: string
+    default: dev
+    values:
+      - dev
+      - stg
+      - prd
+
+  - name: debug
+    displayName: Enable Databricks CLI debug
+    type: boolean
+    default: false
+
+  # Enable only when migrating an existing Terraform deployment.
+  - name: migrate_before_deploy
+    displayName: Migrate Terraform state before deployment
+    type: boolean
+    default: false
+
+variables:
+  - template: /pipelines/variables/common.yaml
+
+  - ${{ if eq(parameters.target_env, 'dev') }}:
+      - template: /pipelines/variables/dev.yaml
+  - ${{ if eq(parameters.target_env, 'stg') }}:
+      - template: /pipelines/variables/stg.yaml
+  - ${{ if eq(parameters.target_env, 'prd') }}:
+      - template: /pipelines/variables/prd.yaml
+
+pool:
+  name: $(agent_pool_name)
+  demands:
+    - ImageOverride -equals $(agent_image)
+
+resources:
+  repositories:
+    - repository: lake_devops
+      type: git
+      name: lake-devops/lake-devops
+      ref: refs/heads/main
+
+extends:
+  template: pipelines/templates/oeds-dbk-dab-deploy-v3-template.yaml@lake_devops
+  parameters:
+    bundle_path: ${{ parameters.bundle_path }}
+    target_env: ${{ parameters.target_env }}
+    debug: ${{ parameters.debug }}
+    migrate_before_deploy: ${{ parameters.migrate_before_deploy }}
+    databricks_resource_id: $(databricks_resource_id)
+    databricks_nexus_url: $(databricks_nexus_url)
+    service_connection: $(service_connection)
+    ${{ if eq(parameters.target_wks, 'UC01') }}:
+      databricks_host: $(databricks-UC01-host)
+    ${{ if eq(parameters.target_wks, 'DMZ') }}:
+      databricks_host: $(databricks-DMZ-host)

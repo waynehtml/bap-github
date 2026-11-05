@@ -1,0 +1,37 @@
+{
+  "id": "http_request_form_text",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60
+    },
+    "requests": [
+      {
+        "id": "submit_form",
+        "method": "POST",
+        "path": "forms",
+        "body": {
+          "type": "form",
+          "value": {
+            "date": "{{ runtime.rundate }}",
+            "format": "csv"
+          }
+        }
+      },
+      {
+        "id": "submit_text",
+        "method": "POST",
+        "path": "messages",
+        "body": {
+          "type": "text",
+          "value": "Report ready for {{ runtime.rundate }}",
+          "content_type": "text/plain; charset=utf-8"
+        },
+        "response": {
+          "expected_status": 202
+        }
+      }
+    ]
+  }
+}

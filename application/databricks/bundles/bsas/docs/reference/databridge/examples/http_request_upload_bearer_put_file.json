@@ -1,0 +1,36 @@
+{
+  "id": "http_request_bearer_file",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "bearer",
+        "token": "{{ keyvault(scope=\"dis-secrets\", key=\"http-bearer-token\") }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "upload_archive",
+        "method": "PUT",
+        "path": "archives/daily",
+        "body": {
+          "type": "file",
+          "path": "prepared/report.zip",
+          "content_type": "application/zip"
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201
+          ],
+          "save_to": "receipts/bearer-upload.json"
+        }
+      }
+    ]
+  }
+}
