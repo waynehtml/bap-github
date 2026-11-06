@@ -1,1 +1,0 @@
-"""Packaged email configuration assets."""
