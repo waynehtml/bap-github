@@ -10,6 +10,7 @@ common_base_parameters: &common_base_parameters
 
   # Bunlde
   bundle_root: ${var.bundle_root}
+  shared_library_root: ${var.shared_library_root}
 
   # Date/Geo Settings
   timezone: "${var.timezone}"
