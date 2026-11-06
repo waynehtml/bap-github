@@ -117,6 +117,7 @@ DEFAULT_JOB_RUN_ID = str(uuid.uuid4())
 DEFAULT_JOB_TRIGGER_TYPE = "manual"
 DEFAULT_WORKSPACE_URL = "https://adb-1700301391505163.3.azuredatabricks.net"
 DEFAULT_BUNDLE_ROOT = resolve_bundle_root_dir(ENV.CURRENT_DIR)
+DEFAULT_SHARED_LIBRARY_ROOT = "/Workspace/oedataservices/datasuite/releases/v1/src"
 DEFAULT_CATALOG = f"{DEFAULT_ENV}_banking_and_payments_cat"
 DEFAULT_CONFIG_ROOT = f"/Volumes/{DEFAULT_CATALOG}/reference_db/vol_bap_config"
 DEFAULT_SECRET_SCOPE = "lake-kv-oedataservices-scope"
@@ -176,8 +177,12 @@ def get_job_context():
     ctx["job_trigger_type"] = param("job_trigger_type", DEFAULT_JOB_TRIGGER_TYPE)
     ctx["workspace_url"] = param("workspace_url", DEFAULT_WORKSPACE_URL)
 
+    ctx["shared_library_root"] = str(
+        param("shared_library_root", DEFAULT_SHARED_LIBRARY_ROOT) or ""
+    ).strip()
     # Bunlde path
     ctx["bundle_root"] = param("bundle_root", DEFAULT_BUNDLE_ROOT)
+    ctx["bundle_conf_dir"] = str(Path(ctx["bundle_root"]) / "conf")
     ctx["bundle_src_dir"] = str(Path(ctx["bundle_root"]) / "src")
     ctx["bundle_cluster_dir"] = str(Path(ctx["bundle_root"]) / "cluster")
 
@@ -290,12 +295,32 @@ logger = logging.getLogger(__name__)
 
 # COMMAND ----------
 
-# Add the src directory into Python import path
+import importlib
 import sys
+
+# Append shared source, local source, and local configuration to the Python import path.
+shared_path = _ctx.get("shared_library_root", "")
+conf_path = _ctx.get("bundle_conf_dir")
 src_path = _ctx.get("bundle_src_dir")
-if str(src_path) not in sys.path:
-    logger.info(f"Adding import path: {src_path}")
-    sys.path.insert(0, str(src_path))
+import_paths = []
+# Shared source is optional: an empty or absent folder leaves local fallback available.
+if shared_path and Path(shared_path).is_dir():
+    import_paths.append(shared_path)
+import_paths.append(src_path)
+import_paths.append(conf_path)
+
+# Append after existing environment paths so installed packages normally win,
+# followed by shared source, local source, and local configuration. Selection is
+# per regular package; missing submodules do not fall back to another copy.
+for import_path in import_paths:
+    # Keep existing positions and avoid duplicates when common.py is rerun.
+    if import_path and str(import_path) not in sys.path:
+        logger.info("Adding import path: %s", import_path)
+        sys.path.append(str(import_path))
+
+# Refresh discovery for new paths; this does not reload imported modules.
+# Start a fresh Python session when switching library locations or versions.
+importlib.invalidate_caches()
 
 # COMMAND ----------
 
