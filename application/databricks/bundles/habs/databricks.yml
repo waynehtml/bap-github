@@ -91,6 +91,9 @@ variables:
   # Bundle installation root path, used to define the root path for the bundle installation
   bundle_root:
     default: ${workspace.file_path}
+  shared_library_root:
+    description: Optional shared library source directory; missing directories are skipped.
+    default: /Workspace/oedataservices/datasuite/releases/v1/src
   # Databricks runtime version
   dbk_runtime_version:
     default: "16.4.x-scala2.13"

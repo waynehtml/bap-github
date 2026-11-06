@@ -125,6 +125,9 @@ variables:
   # Bundle installation root path, used to define the root path for the bundle installation
   bundle_root:
     default: ${workspace.file_path}
+  shared_library_root:
+    description: Optional shared library source directory; missing directories are skipped.
+    default: /Workspace/oedataservices/datasuite/releases/v1/src
   # SPN ID used as the job run identity. Each <DOMAIN>.databricks.yml provides
   # the approved dev/stg/prd values.
   # Example target override:

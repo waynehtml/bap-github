@@ -160,6 +160,7 @@ DEFAULT_HOLIDAY_GROUP = "nationalholidayscanada"
 DEFAULT_ENV = "dev"
 DEFAULT_DBK_RUNTIME_VERSION = "16.4.x-scala2.13"
 DEFAULT_BUNDLE_ROOT = resolve_bundle_root_dir(ENV.CURRENT_DIR)
+DEFAULT_SHARED_LIBRARY_ROOT = "/Workspace/oedataservices/datasuite/releases/v1/src"
 DEFAULT_NEXUS_URL = (
     "https://fcp4lnexuap01.bocad.bank-banque-canada.ca/nexus/repository/pypi-all/simple"
 )
@@ -306,6 +307,9 @@ def get_job_context():
     ctx["dbk_runtime_version"] = param(
         "dbk_runtime_version", DEFAULT_DBK_RUNTIME_VERSION
     )
+    ctx["shared_library_root"] = str(
+        param("shared_library_root", DEFAULT_SHARED_LIBRARY_ROOT) or ""
+    ).strip()
     # Bundle path
     ctx["bundle_root"] = param("bundle_root", DEFAULT_BUNDLE_ROOT)
     ctx["bundle_conf_dir"] = str(Path(ctx["bundle_root"]) / "conf")
@@ -516,13 +520,28 @@ logger.debug("Job context keys: %s", sorted(_ctx))
 import importlib
 import sys
 
+# Append shared source, local source, and local configuration to the Python import path.
+shared_path = _ctx.get("shared_library_root", "")
 conf_path = _ctx.get("bundle_conf_dir")
 src_path = _ctx.get("bundle_src_dir")
-for import_path in (conf_path, src_path):
-    if str(import_path) not in sys.path:
-        logger.info(f"Adding import path: {import_path}")
-        sys.path.insert(0, str(import_path))
+import_paths = []
+# Shared source is optional: an empty or absent folder leaves local fallback available.
+if shared_path and Path(shared_path).is_dir():
+    import_paths.append(shared_path)
+import_paths.append(src_path)
+import_paths.append(conf_path)
 
+# Append after existing environment paths so installed packages normally win,
+# followed by shared source, local source, and local configuration. Selection is
+# per regular package; missing submodules do not fall back to another copy.
+for import_path in import_paths:
+    # Keep existing positions and avoid duplicates when common.py is rerun.
+    if import_path and str(import_path) not in sys.path:
+        logger.info("Adding import path: %s", import_path)
+        sys.path.append(str(import_path))
+
+# Refresh discovery for new paths; this does not reload imported modules.
+# Start a fresh Python session when switching library locations or versions.
 importlib.invalidate_caches()
 
 # COMMAND ----------
