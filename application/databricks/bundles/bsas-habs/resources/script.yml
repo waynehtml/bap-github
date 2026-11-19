@@ -1,0 +1,82 @@
+# The dbk-dab v3 pipeline invokes pre_deploy before deployment and post_deploy
+# only after successful deployment. A plain bundle deploy does not run these hooks.
+# Scripts run on the deployment agent from the bundle root, using its authentication.
+# The bundle must validate before the pipeline can discover and invoke either hook.
+
+# Hook selections are configured centrally in default.databricks.yml.
+# Both hooks receive target-resolved selections through env and run names in order.
+# Whitespace and empty entries are ignored; repeated names run again. Each script
+# runs in a separate process, so shell exports do not persist between scripts.
+# Unknown names fail through the CLI. Any command failure stops the hook and pipeline
+# step; no retry or rollback is performed. Hook names are rejected to prevent recursion.
+scripts:
+  # Preparation must succeed before the pipeline deploys bundle resources.
+  pre_deploy:
+    env:
+      DEPLOY_TARGET: ${bundle.target}
+      DEPLOY_SCRIPTS: ${var.pre_deploy_scripts}
+    content: |
+      python - <<'PY'
+      import os
+      import subprocess
+
+      for name in os.environ["DEPLOY_SCRIPTS"].split(","):
+          name = name.strip()
+          if not name:
+              continue
+          if name in ("pre_deploy", "post_deploy"):
+              raise ValueError("Deployment hooks cannot invoke themselves or each other")
+          print(f"pre_deploy: {name}", flush=True)
+          subprocess.run(
+              ["databricks", "bundle", "run", name,
+               "--target", os.environ["DEPLOY_TARGET"]], check=True,
+          )
+      PY
+
+  # Follow-up work can use deployed resources. Failure marks the pipeline as failed
+  # but does not undo the completed deployment.
+  post_deploy:
+    env:
+      DEPLOY_TARGET: ${bundle.target}
+      DEPLOY_SCRIPTS: ${var.post_deploy_scripts}
+    content: |
+      python - <<'PY'
+      import os
+      import subprocess
+
+      for name in os.environ["DEPLOY_SCRIPTS"].split(","):
+          name = name.strip()
+          if not name:
+              continue
+          if name in ("pre_deploy", "post_deploy"):
+              raise ValueError("Deployment hooks cannot invoke themselves or each other")
+          print(f"post_deploy: {name}", flush=True)
+          subprocess.run(
+              ["databricks", "bundle", "run", name,
+               "--target", os.environ["DEPLOY_TARGET"]], check=True,
+          )
+      PY
+
+  # Publish all DataBench configuration files, including the placeholder README,
+  # directly under the target's databench_root/config, preserving relative paths.
+  # Overwrite matching files and retain destination-only files. The Volume must
+  # already exist and the deployment identity must have write access.
+  # Skip a missing source; warn on any copy failure and let deployment continue.
+  # No destination check, retry, or rollback is performed; partial copies may remain.
+  # dbfs: addresses the remote Volume through the CLI; this is not a local copy.
+  deploy_databench_config:
+    env:
+      DATABENCH_ROOT: ${var.databench_root}
+    content: |
+      set -euo pipefail
+      source_dir="src/oeds/domain/config/databench"
+      if [ ! -d "$source_dir" ]; then
+        echo "Skipping DataBench configuration copy: source directory is absent."
+        exit 0
+      fi
+      if ! databricks fs cp \
+        "$source_dir" \
+        "dbfs:${DATABENCH_ROOT%/}/config" \
+        --recursive --overwrite; then
+        echo "##vso[task.logissue type=warning]DataBench configuration copy failed; continuing deployment."
+      fi

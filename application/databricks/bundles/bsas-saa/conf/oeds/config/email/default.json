@@ -1,0 +1,7 @@
+{
+  "failure": {
+    "template": "template/failure.html",
+    "subject": "$ENV - CORRA - JOB FAILURE",
+    "recipients": ["DM", "DDA"]
+  }
+}

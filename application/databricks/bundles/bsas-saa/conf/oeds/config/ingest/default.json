@@ -1,0 +1,40 @@
+{
+  "pipeline": "bap-bsas-habs",
+  "tasks": [
+    {
+      "id": "download_smb",
+      "handler": "oedis.handler.smb.download",
+      "params": {
+        "connection": {
+          "unc": "[[r_drive_path]]",
+          "auth": {
+            "username": "bocad\\triton_s",
+            "password": "{{keyvault(scope='lake-kv-triton-scope', key='service-account-cred')}}"
+          }
+        },
+        "requests": [
+          {
+            "include": ["SWIFT*.xml", "SWIFT*.XML"],
+            "recursive": false,
+            "delete_source_file": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "upload",
+      "handler": "oedis.handler.storage.upload",
+      "params": {
+        "connection": {
+          "uri": "/Volumes/[[env]]_banking_and_payments_cat/reference_db/vol_bap_land/"
+        },
+        "requests": [
+          {
+            "include": ["SWIFT*.xml", "SWIFT*.XML"],
+            "dst_dir": "bsas/saa/[[file_date]]"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "id": "http_request_api_key_cookie",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "auth": {
+        "type": "api_key",
+        "location": "cookie",
+        "name": "api_key",
+        "value": "{{ keyvault(scope=\"dis-secrets\", key=\"http-api-key\") }}"
+      }
+    },
+    "requests": [
+      {
+        "method": "GET",
+        "path": "reports/daily",
+        "params": {
+          "date": "{{ runtime.rundate }}"
+        },
+        "retry": {
+          "max_attempts": 3,
+          "interval_sec": 30,
+          "status_codes": [
+            429,
+            500,
+            502,
+            503,
+            504
+          ]
+        },
+        "response": {
+          "save_to": "raw/daily.csv"
+        }
+      }
+    ]
+  }
+}

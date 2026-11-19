@@ -1,0 +1,34 @@
+{
+  "id": "send",
+  "handler": "oedis.handler.amq.send",
+  "params": {
+    "connection": {
+      "uri": [
+        "amqps://broker-1.example.com:443",
+        "amqps://broker-2.example.com:443"
+      ],
+      "timeout_sec": 60,
+      "auth": {
+        "type": "client_certificate",
+        "certificate": "{{ keyvault(scope=\"dis-secrets\", key=\"amq_client_certificate\") }}",
+        "private_key": "{{ keyvault(scope=\"dis-secrets\", key=\"amq_client_private_key\") }}",
+        "private_key_passphrase": "{{ keyvault(scope=\"dis-secrets\", key=\"amq_client_private_key_passphrase\") }}",
+        "ca_certificate": "{{ keyvault(scope=\"dis-secrets\", key=\"amq_ca_certificate\") }}"
+      },
+      "fault_tolerant": {
+        "retries": 3,
+        "retry_interval_sec": 30
+      }
+    },
+    "requests": [
+      {
+        "queue": "ORDERS.OUT",
+        "body": "business_date={{ runtime.rundate }}",
+        "properties": {
+          "message_type": "order",
+          "business_date": "{{ runtime.rundate }}"
+        }
+      }
+    ]
+  }
+}

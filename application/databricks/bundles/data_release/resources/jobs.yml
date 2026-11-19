@@ -82,55 +82,6 @@ common_job_cluster: &common_job_cluster
 
 resources:
   jobs:
-    compare_table_contents:
-      name: BAP-COMPARE_TABLE_CONTENTS
-      description: "This job compare the source and target tables."
-      tags:
-        team: ${var.project.team}
-        domain: ${var.project.domain}
-        pipeline: "BAP-COMPARE_TABLE_CONTENTS"
-        type: "operation"
-        criticality: "standard"
-
-      run_as:
-        service_principal_name: ${var.job_runas_account}
-
-      queue:
-        enabled: true
-
-      max_concurrent_runs: 1
-
-      parameters:
-        - name: source_catalog
-          default: ${var.fmbodw_catalog}
-        - name: source_schema
-          default: "fmbodw"
-        - name: target_catalog
-          default: ${var.catalog}
-        - name: target_schema
-          default: "curated_db"
-        - name: tables_list
-          default: |
-            [
-              "bo_account_bal_type_dim",
-              "bo_account_dim",
-              "bo_account_balance_daily_fact"
-            ]
-
-      email_notifications:
-        on_failure: ${var.job_alert_emails}
-
-      job_clusters:
-        - <<: *common_job_cluster
-
-      tasks:
-        - task_key: compare_table_contents
-          job_cluster_key: Job_cluster
-          notebook_task:
-            notebook_path: ../jobs/compare_table_contents/compare_table_contents.py
-            base_parameters:
-              <<: *common_base_parameters
-
     backup_tables:
       name: BAP-BACKUP-TABLES
       description: "This job supports backing up tables."
@@ -202,91 +153,56 @@ resources:
       email_notifications:
         on_failure: ${var.job_alert_emails}
 
-      job_clusters:
-        - <<: *common_job_cluster
-
       tasks:
         - task_key: drop_tables
-          job_cluster_key: Job_cluster
           notebook_task:
             notebook_path: ../jobs/drop_tables/drop_tables.py
             base_parameters:
               <<: *common_base_parameters
 
-
-    release_deployment_serverless:
-      name: BAP-DATA-RELEASE-DEPLOYMENT-Serverless
-      description: "Deploys tables, views, and materialized views via SQL warehouse."
+    clean_schema:
+      name: BAP-CLEAN-SCHEMA
+      # Short description to help operators understand the pipeline's purpose.
+      description: "This job is drop everything in the given schema"
       tags:
         team: ${var.project.team}
         domain: ${var.project.domain}
-        pipeline: "BAP-DATA-RELEASE-DEPLOYMENT-Serverless"
-        type: "operation"
+        pipeline: "BAP-CLEAN-SCHEMA"
+        type: "dataflow"
         criticality: "standard"
 
       run_as:
+        # Service principal used to run the job in each deployed environment.
         service_principal_name: ${var.job_runas_account}
 
       queue:
+        # Queue overlapping triggers instead of rejecting them when capacity is busy.
         enabled: true
 
+      # Limit how many runs of this job may execute at the same time.
       max_concurrent_runs: 1
 
+      # Job-level parameters are exposed in the Jobs UI and can be overridden per run.
       parameters:
+        # Per-run debug override for notebook logging/behavior.
         - name: debug
           default: ${var.debug}
         - name: catalog
           default: ${var.catalog}
-        - name: release_version
-          default: "release-serverless"
-        - name: max_parallelism
-          default: "8"
-        - name: sql_warehouse_id
-          default: ${var.sql_warehouse_id}
+        - name: schema_to_be_clean
+          default: "curated_db"
 
       email_notifications:
+        # Alert recipients for job failures.
         on_failure: ${var.job_alert_emails}
 
-
       tasks:
-        - task_key: deploy_dimensions
-
+        - task_key: drop_schema_tables_views
           notebook_task:
-            notebook_path: ../jobs/release_deploy_serverless/deploy.py
+            notebook_path: ../jobs/clean_schema/clean_schema.py
             base_parameters:
               <<: *common_base_parameters
-              stage: "Dimensions"
-
-        - task_key: deploy_facts
-
-          depends_on:
-            - task_key: deploy_dimensions
-          notebook_task:
-            notebook_path: ../jobs/release_deploy_serverless/deploy.py
-            base_parameters:
-              <<: *common_base_parameters
-              stage: "Facts"
-
-        - task_key: deploy_views
-
-          depends_on:
-            - task_key: deploy_facts
-          notebook_task:
-            notebook_path: ../jobs/release_deploy_serverless/deploy.py
-            base_parameters:
-              <<: *common_base_parameters
-              stage: "Views"
-
-        - task_key: deploy_materialized_views
-
-          depends_on:
-            - task_key: deploy_views
-          notebook_task:
-            notebook_path: ../jobs/release_deploy_serverless/deploy.py
-            base_parameters:
-              <<: *common_base_parameters
-              stage: "MViews"
-
+              
     release_deployment:
       name: BAP-DATA-RELEASE-DEPLOYMENT
       description: "This job supports the deployment of the BAP data release."
@@ -316,6 +232,9 @@ resources:
           default: "parallel"
         - name: max_parallelism
           default: "8"
+        # Comma-separated folders under the release root, executed in order.
+        - name: folders
+          default: "tables/dimensions,tables/facts,views"
         - name: fmd_catalog
           default: ${var.fmd_catalog}
         - name: ref_catalog
@@ -324,38 +243,13 @@ resources:
       email_notifications:
         on_failure: ${var.job_alert_emails}
 
-      job_clusters:
-        - <<: *common_job_cluster
-
       tasks:
-        - task_key: deploy_dimensions
-          job_cluster_key: Job_cluster
+        - task_key: deploy
           notebook_task:
             notebook_path: ../jobs/release_deploy/deploy.py
             base_parameters:
               <<: *common_base_parameters
-              stage: "Dimensions"
-
-        - task_key: deploy_facts
-          job_cluster_key: Job_cluster
-          depends_on:
-            - task_key: deploy_dimensions
-          notebook_task:
-            notebook_path: ../jobs/release_deploy/deploy.py
-            base_parameters:
-              <<: *common_base_parameters
-              stage: "Facts"
-
-        - task_key: deploy_views
-          job_cluster_key: Job_cluster
-          depends_on:
-            - task_key: deploy_facts
-          notebook_task:
-            notebook_path: ../jobs/release_deploy/deploy.py
-            base_parameters:
-              <<: *common_base_parameters
-              stage: "Views"
-
+              
 targets:
   dev:
     resources:
@@ -374,6 +268,19 @@ targets:
             - service_principal_name: ${var.job_runas_account}
               level: CAN_MANAGE
 
+        drop_tables:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        clean_schema:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
   stg:
     resources:
       jobs:
@@ -395,6 +302,20 @@ targets:
             - group_name: ${var.dm_ad_group}
               level: CAN_MANAGE_RUN
 
+        drop_tables:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        clean_schema:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
   prd:
     resources:
       jobs:
@@ -415,3 +336,18 @@ targets:
               level: CAN_MANAGE
             - group_name: ${var.dm_ad_group}
               level: CAN_MANAGE_RUN
+
+        drop_tables:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+
+        clean_schema:
+          permissions:
+            - group_name: ${var.support_ad_group}
+              level: CAN_MANAGE
+            - service_principal_name: ${var.job_runas_account}
+              level: CAN_MANAGE
+              

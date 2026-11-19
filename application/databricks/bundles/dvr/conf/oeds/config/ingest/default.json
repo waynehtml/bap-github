@@ -6,7 +6,7 @@
       "handler": "oedis.handler.storage.download",
       "params": {
         "connection": {
-          "uri": [[ archive_root | tojson ]]
+          "uri": [[ source_root | tojson ]]
         },
         "requests": [
           {

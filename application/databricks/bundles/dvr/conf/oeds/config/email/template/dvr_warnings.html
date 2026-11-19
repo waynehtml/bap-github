@@ -7,15 +7,16 @@
     .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
     .header p { margin: 8px 0 0; font-size: 14px; color: #d7edf7; }
     .content { padding: 28px 32px 32px; background: #ffffff; line-height: 1.6; }
-    .status { margin: 0 0 24px; padding: 14px 16px; border-left: 4px solid #E65100; background: #FFF3E0; font-size: 16px; }
-    .status strong { color: #E65100; }
     h2 { margin: 28px 0 12px; font-size: 17px; color: #1B3A5C; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th { padding: 10px 12px; background: #e7f1f5; border: 1px solid #c7d6dd; color: #123b4d; text-align: left; }
     td { padding: 10px 12px; border: 1px solid #dce3e8; }
     tr:nth-child(even) td { background: #f8fafb; }
     .warn { color: #E65100; font-weight: 600; }
+    .section-gap td { border: none; background: transparent; padding: 4px 12px; }
     .footer { padding: 16px 32px; background: #edf1f3; color: #52606d; font-size: 12px; }
+    .status { margin: 0 0 24px; padding: 14px 16px; border-left: 4px solid #E65100; background: #FFF3E0; font-size: 16px; }
+    .status strong { color: #E65100; }
   </style>
 </head>
 <body>
@@ -25,18 +26,31 @@
       <p>$filename<br>$report_date</p>
     </div>
     <div class="content">
-      <p class="status">Status: <strong>WARNINGS</strong></p>
+      <p class="status">Status: <strong>WARNINGS</strong> &mdash; $unmatched_count of $swift_file_rows SWIFT transactions did not match HABS</p>
       <p>The referenced files have been loaded into the data warehouse and the reconciliation has been completed.</p>
 
       <h2>Reconciliation Summary</h2>
       <table>
-        <tr><th>Metric</th><th>Count</th></tr>
-        <tr><td>Total reconciled</td><td><strong>$total_reconciled</strong></td></tr>
-        <tr><td>Successful matches</td><td>$success</td></tr>
-        <tr><td>Warnings</td><td class="warn">$warnings</td></tr>
+        <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>SWIFT file rows</td><td><strong>$swift_file_rows</strong></td></tr>
+        $swift_amount_rows
+        <tr class="section-gap"><td></td><td></td></tr>
+        <tr><td>Matched</td><td><strong>$matched_count</strong></td></tr>
+        $findur_matched_row
+        <tr><td>Unmatched</td><td class="warn">$unmatched_count</td></tr>
+        <tr class="section-gap"><td></td><td></td></tr>
+        <tr><td>HABS CLOB rows</td><td>$habs_clob_rows</td></tr>
+        $habs_clob_amount_rows
+        <tr><td>HABS DB rows</td><td>$habs_db_rows</td></tr>
+        $habs_db_amount_rows
+        <tr class="section-gap"><td></td><td></td></tr>
+        <tr><td>HABS-only (in HABS, not in SWIFT file)</td><td>$habs_only_count</td></tr>
+        <tr><td>Out of scope (Receiver General via Viagate, not in SWIFT DVR)</td><td>$out_of_scope_count</td></tr>
       </table>
 
-      <p>The report is now available for your review in the online reporting tool.</p>
+      $unmatched_details_html
+
+      <p>See the attached Excel report for full reconciliation details.</p>
       $task_status_html
     </div>
     <div class="footer">This message was sent from an unmonitored email address (FMBODW_Support_Noreply). Please do not respond.</div>

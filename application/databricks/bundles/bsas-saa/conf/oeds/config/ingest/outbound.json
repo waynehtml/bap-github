@@ -1,0 +1,37 @@
+{
+  "pipeline": "oeds-sample-outbound",
+  "tasks": [
+    {
+      "id": "download",
+      "handler": "oedis.handler.storage.download",
+      "params": {
+        "connection": {
+          "uri": "[[outbound_root]]"
+        },
+        "requests": [
+          {
+            "src_dir": "[[file_date]]",
+            "include": ["[[file_name]]"],
+            "recursive": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "upload",
+      "handler": "oedis.handler.storage.upload",
+      "params": {
+        "connection": {
+          "uri": "[[outbound_root]]"
+        },
+        "requests": [
+          {
+            "include": ["[[file_name]]"],
+            "dst_dir": "delivered/[[file_date]]",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  ]
+}

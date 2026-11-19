@@ -1,0 +1,102 @@
+# purpose: Runs a single-task pipeline for general operational work.
+# required: false
+variables:
+  # name: operation_job_name
+  # description: Uppercase full display name for the operation job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.domain and project.dataset using the
+  #     uppercase form <DOMAIN>-<DATASET>-OPERATION.
+  #   input_example: "FMD-CORRA-OPERATION"
+  operation_job_name:
+    default: "{{operation_job_name}}"
+  # name: operation_job_description
+  # description: Operator-facing description of the operation job.
+  # required: true
+  # value:
+  #   modes: ["infer", "input"]
+  #   infer: From confirmed project.dataset using <dataset> operation job.
+  #   input_example: "Refreshes the CORRA reference data each business day."
+  operation_job_description:
+    default: "{{operation_job_description}}"
+
+resources:
+  jobs:
+    OPERATION:
+      name: ${var.operation_job_name}
+      description: ${var.operation_job_description}
+      tags:
+        team: ${var.project.team}
+        domain: ${var.project.domain}
+        application: ${var.project.dataset}
+        type: "operation"
+        criticality: "low"
+
+      permissions: ${var.job_permissions}
+
+      run_as:
+        service_principal_name: ${var.job_runas_account}
+
+      queue:
+        enabled: false
+      max_concurrent_runs: 1
+
+      parameters:
+        - name: rundate
+          default: ""
+        - name: debug
+          default: ${var.debug}
+        - name: args
+          default: ""
+
+      email_notifications:
+        on_failure: ${var.job_alert_emails}
+
+      # Central classic: use new_cluster: ${var.compute_classic_central_cluster}.
+      # Serverless: remove job_clusters and add the following job-level setting:
+      # environments: ${var.compute_serverless_environments}
+      # Replace every notebook task's job_cluster_key with:
+      # environment_key: ${var.compute_serverless_environment_key}
+      # Leave condition tasks without compute references.
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster: ${var.compute_classic_local_cluster}
+
+      tasks:
+        - task_key: main
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../../jobs/operation/task_00_main.py
+            base_parameters: ${var.common_base_parameters}
+
+targets:
+  dev:
+    resources:
+      jobs:
+        OPERATION:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED
+
+  stg:
+    resources:
+      jobs:
+        OPERATION:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED
+
+  prd:
+    resources:
+      jobs:
+        OPERATION:
+          # Example schedules are paused until explicitly enabled for each target.
+          schedule:
+            quartz_cron_expression: "0 0 10 ? * MON-FRI"
+            timezone_id: ${var.timezone}
+            pause_status: PAUSED

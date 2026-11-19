@@ -1,0 +1,100 @@
+{
+  "variables": {
+    "catalog_name": "tst_financial_markets_cat",
+    "reference_schema_name": "reference_db",
+    "standardized_schema_name": "standardized_db",
+    "landing_volume_name": "vol_triton_land",
+    "config_volume_name": "vol_triton_config",
+    "customer_table_name": "tbl_customer",
+    "rundate": "2026-05-01"
+  },
+  "artifacts": [
+    {
+      "name": "customer_fixture",
+      "sql": "SELECT * FROM {{ catalog_name }}.{{ standardized_schema_name }}.{{ customer_table_name }}",
+      "output_path": "fixtures/{{ customer_table_name }}",
+      "export_mode": "schema"
+    },
+    {
+      "name": "customer_expected",
+      "sql": "SELECT * FROM {{ catalog_name }}.{{ standardized_schema_name }}.{{ customer_table_name }} WHERE rundate = DATE '{{ rundate }}'",
+      "output_path": "expected/tbl_customer_expected",
+      "export_mode": "data"
+    }
+  ],
+  "environment": {
+    "catalogs": [
+      {
+        "name": "{{ catalog_name }}",
+        "schemas": [
+          {
+            "name": "{{ reference_schema_name }}",
+            "volumes": [
+              {
+                "name": "{{ landing_volume_name }}",
+                "files": [
+                  {
+                    "from": "inputs/customer.csv",
+                    "to": "testbench/{{ rundate }}/"
+                  }
+                ]
+              },
+              {
+                "name": "{{ config_volume_name }}"
+              }
+            ]
+          },
+          {
+            "name": "{{ standardized_schema_name }}",
+            "tables": [
+              {
+                "name": "{{ customer_table_name }}",
+                "source": {
+                  "format": "parquet",
+                  "path": "fixtures/{{ customer_table_name }}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "setup": {
+    "enabled": true
+  },
+  "run": {
+    "job": {
+      "name": "FMD_CDS_DATAFLOW",
+      "parameters": {
+        "env": "tst",
+        "catalog": "{{ catalog_name }}",
+        "schema": "{{ standardized_schema_name }}",
+        "landing_volume": "/Volumes/{{ catalog_name }}/{{ reference_schema_name }}/{{ landing_volume_name }}",
+        "config_volume": "/Volumes/{{ catalog_name }}/{{ reference_schema_name }}/{{ config_volume_name }}",
+        "rundate": "{{ rundate }}"
+      },
+      "wait_for_completion": true,
+      "timeout_seconds": 3600
+    }
+  },
+  "validate": {
+    "enabled": true,
+    "verifications": [
+      {
+        "name": "tbl_customer_matches_expected",
+        "type": "table_equals_file",
+        "actual": {
+          "table": "{{ catalog_name }}.{{ standardized_schema_name }}.{{ customer_table_name }}"
+        },
+        "expected": {
+          "format": "parquet",
+          "path": "expected/tbl_customer_expected"
+        }
+      }
+    ]
+  },
+  "teardown": {
+    "enabled": true
+  }
+}

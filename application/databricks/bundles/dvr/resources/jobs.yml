@@ -2,7 +2,7 @@
 resources:
   jobs:
     dvr_swift_pipeline:
-      name: "DVR Swift Pipeline"
+      name: "BAP-DVR-SWIFT"
       tags:
         team: ${var.project.team}
         domain: ${var.project.domain}
@@ -31,8 +31,6 @@ resources:
           default: ${var.habs_source_table}
         - name: swift_volume_root
           default: ${var.swift_volume_root}
-        - name: reports_root
-          default: ${var.reports_root}
         - name: legacy_r_drive_path
           default: ${var.legacy_r_drive_path}
         - name: oeds_secret_scope
@@ -47,11 +45,40 @@ resources:
           new_cluster: ${var.compute_classic_local_cluster}
 
       tasks:
-        - task_key: validate_swift_files
-          description: Validate uploaded SWIFT DVR Excel files from inbox
+        # First task (land to raw): the app uploads to the landing zone
+        # (land_root). Copy every landed file (valid or not) to the legacy R:
+        # drive via DataBridge, then move it to the raw inbox for validation.
+        - task_key: land_to_raw
+          description: Copy landed SWIFT DVR files to the legacy R drive via DataBridge, then move them to the raw inbox
           job_cluster_key: Job_cluster
           notebook_task:
-            notebook_path: ../src/dvr-pipeline/01_validate_swift_files.py
+            notebook_path: ../src/dvr_pipeline/02b_copy_legacy_r_drive.ipynb
+            source: WORKSPACE
+            # DataBridge connection settings are resolved from Key Vault by common.py (_ctx).
+            base_parameters:
+              legacy_r_drive_path: "{{job.parameters.legacy_r_drive_path}}"
+              land_root: "{{job.parameters.land_root}}"
+              # Environment-specific settings read by common.py (defaults there are dev).
+              env: ${bundle.target}
+              workspace_url: "{{workspace.url}}"
+              raw_root: "${var.raw_root}"
+              service_spn_id_key: "${var.service_spn_id_key}"
+              service_spn_secrete_key: "${var.service_spn_secrete_key}"
+              dis_av_root: "${var.dis_av_root}"
+              dis_oedisext_client_id_key: "${var.dis_oedisext_client_id_key}"
+              dis_oedisext_client_secret_key: "${var.dis_oedisext_client_secret_key}"
+          timeout_seconds: 1800
+
+        - task_key: validate_swift_files
+          description: Validate uploaded SWIFT DVR Excel files from inbox
+          # land_to_raw moves the files to the raw inbox even if the R: drive copy
+          # fails, so validation still runs then (notify alerts).
+          depends_on:
+            - task_key: land_to_raw
+          run_if: ALL_DONE
+          job_cluster_key: Job_cluster
+          notebook_task:
+            notebook_path: ../src/dvr_pipeline/01_validate_swift_files.py
             source: WORKSPACE
             base_parameters:
               catalog: "{{job.parameters.catalog}}"
@@ -71,40 +98,14 @@ resources:
             left: "{{tasks.validate_swift_files.values.file_count}}"
             right: "0"
 
-        - task_key: copy_legacy_r_drive
-          description: Copy validated SWIFT DVR files to the legacy R drive via SMB
-          depends_on:
-            - task_key: has_files
-              outcome: "true"
-          job_cluster_key: Job_cluster
-          notebook_task:
-            notebook_path: ../src/dvr-pipeline/02b_copy_legacy_r_drive.ipynb
-            source: WORKSPACE
-            # DataBridge connection settings are resolved from Key Vault by common.py (_ctx).
-            base_parameters:
-              legacy_r_drive_path: "{{job.parameters.legacy_r_drive_path}}"
-              # Environment-specific settings read by common.py (defaults there are dev).
-              env: ${bundle.target}
-              workspace_url: "{{workspace.url}}"
-              raw_root: "${var.raw_root}"
-              service_spn_id_key: "${var.service_spn_id_key}"
-              service_spn_secrete_key: "${var.service_spn_secrete_key}"
-              dis_av_root: "${var.dis_av_root}"
-              dis_oedisext_client_id_key: "${var.dis_oedisext_client_id_key}"
-              dis_oedisext_client_secret_key: "${var.dis_oedisext_client_secret_key}"
-              valid_files_json: "{{tasks.validate_swift_files.values.valid_files_json}}"
-          timeout_seconds: 1800
-
         - task_key: parse_load_swift
           description: Parse valid DVR Excel files and load into SWIFT_MESSAGE_FACT
-          # The R: drive copy is a side output for the legacy process; it must not
-          # block loading, reconciliation or reports.
           depends_on:
             - task_key: has_files
               outcome: "true"
           job_cluster_key: Job_cluster
           notebook_task:
-            notebook_path: ../src/dvr-pipeline/02_parse_load_swift.py
+            notebook_path: ../src/dvr_pipeline/02_parse_load_swift.py
             source: WORKSPACE
             base_parameters:
               catalog: "{{job.parameters.catalog}}"
@@ -120,7 +121,7 @@ resources:
               outcome: "true"
           job_cluster_key: Job_cluster
           notebook_task:
-            notebook_path: ../src/dvr-pipeline/03_load_habs_message.py
+            notebook_path: ../src/dvr_pipeline/03_load_habs_message.py
             source: WORKSPACE
             base_parameters:
               catalog: "{{job.parameters.catalog}}"
@@ -137,7 +138,7 @@ resources:
             - task_key: load_habs_message
           job_cluster_key: Job_cluster
           notebook_task:
-            notebook_path: ../src/dvr-pipeline/04_reconcile.py
+            notebook_path: ../src/dvr_pipeline/04_reconcile.py
             source: WORKSPACE
             # Scoped to this run's files via the validate task's valid_files_json.
             base_parameters:
@@ -149,11 +150,11 @@ resources:
           depends_on:
             - task_key: reconcile
             - task_key: generate_reports
-            - task_key: copy_legacy_r_drive
+            - task_key: land_to_raw
           run_if: ALL_DONE
           job_cluster_key: Job_cluster
           notebook_task:
-            notebook_path: ../src/dvr-pipeline/05_notify.py
+            notebook_path: ../src/dvr_pipeline/05_notify.py
             source: WORKSPACE
             base_parameters:
               catalog: "{{job.parameters.catalog}}"
@@ -174,16 +175,15 @@ resources:
           timeout_seconds: 600
 
         - task_key: generate_reports
-          description: Write retained CSV and HTML reconciliation reports
+          description: Write this run's reconciliation report rows to curated_db.tbl_dvr_recon_report
           depends_on:
             - task_key: reconcile
           job_cluster_key: Job_cluster
           notebook_task:
-            notebook_path: ../src/dvr-pipeline/07_generate_reports.py
+            notebook_path: ../src/dvr_pipeline/07_generate_reports.py
             source: WORKSPACE
             base_parameters:
               catalog: "{{job.parameters.catalog}}"
-              reports_root: "{{job.parameters.reports_root}}"
               report_date: "{{tasks.validate_swift_files.values.report_date}}"
               valid_files_json: "{{tasks.validate_swift_files.values.valid_files_json}}"
           timeout_seconds: 1800

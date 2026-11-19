@@ -1,0 +1,41 @@
+{
+  "id": "http_request_no_auth",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "none"
+      }
+    },
+    "requests": [
+      {
+        "id": "public_catalogue",
+        "method": "GET",
+        "path": "public/catalogue",
+        "params": {
+          "language": "en"
+        },
+        "response": {
+          "expected_status": 200,
+          "save_to": "raw/public-catalogue.json"
+        }
+      },
+      {
+        "id": "health_check",
+        "method": "HEAD",
+        "path": "health",
+        "response": {
+          "expected_status": [
+            200,
+            204
+          ]
+        }
+      }
+    ]
+  }
+}

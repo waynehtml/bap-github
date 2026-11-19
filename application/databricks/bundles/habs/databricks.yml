@@ -152,6 +152,8 @@ variables:
     default: "${var.env}_ext_ora_fmbodw_cat"
   habs_catalog:
     default: "${var.env}_ext_ora_habs_cat"
+  bsas_catalog:
+    default: "${var.env}_ext_sqls_bsas_cat"
   # Landing root derived from the project catalog tag and resource tag.
   land_root:
     default: "/Volumes/${var.catalog}/reference_db/vol_${var.project.tag}_land"

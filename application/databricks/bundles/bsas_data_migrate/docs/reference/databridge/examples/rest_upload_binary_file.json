@@ -1,0 +1,39 @@
+{
+  "id": "upload_archive",
+  "handler": "oedis.handler.rest.upload",
+  "params": {
+    "connection": {
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "api_key",
+        "name": "x-api-key",
+        "value": "{{ keyvault(scope=\"dis-secrets\", key=\"api_key\") }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "send_archive",
+        "method": "PUT",
+        "url": "https://example/api/archive",
+        "body": {
+          "type": "binary_file",
+          "file": {
+            "path": "prepared/report_{{ rundate }}.zip",
+            "content_type": "application/zip"
+          }
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201,
+            202,
+            204
+          ]
+        }
+      }
+    ]
+  }
+}

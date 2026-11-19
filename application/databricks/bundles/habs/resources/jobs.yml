@@ -149,53 +149,7 @@ resources:
             notebook_path: ../jobs/fmbodw_migrate/fmbodw_migrate_bap_tables.py
             base_parameters:
               <<: *common_base_parameters
-
-    clean_schema:
-      name: BAP-CLEAN-SCHEMA
-      # Short description to help operators understand the pipeline's purpose.
-      description: "This job is drop everything in the given schema"
-      tags:
-        team: ${var.project.team}
-        domain: ${var.project.domain}
-        pipeline: "BAP-CLEAN-SCHEMA"
-        type: "dataflow"
-        criticality: "standard"
-
-      run_as:
-        # Service principal used to run the job in each deployed environment.
-        service_principal_name: ${var.job_runas_account}
-
-      queue:
-        # Queue overlapping triggers instead of rejecting them when capacity is busy.
-        enabled: true
-
-      # Limit how many runs of this job may execute at the same time.
-      max_concurrent_runs: 1
-
-      # Job-level parameters are exposed in the Jobs UI and can be overridden per run.
-      parameters:
-        # Per-run debug override for notebook logging/behavior.
-        - name: debug
-          default: ${var.debug}
-        - name: schema_to_be_clean
-          default: "curated_db"
-
-      email_notifications:
-        # Alert recipients for job failures.
-        on_failure: ${var.job_alert_emails}
-
-      # Shared job cluster used by notebook tasks in this sample workflow.
-      job_clusters:
-        - <<: *common_job_cluster
-
-      tasks:
-        - task_key: drop_schema_tables_views
-          job_cluster_key: Job_cluster
-          notebook_task:
-            notebook_path: ../jobs/clean_schema/clean_schema.py
-            base_parameters:
-              <<: *common_base_parameters
-              
+             
     habs_wp1:
       # Display name that appears in the Databricks Jobs UI.
       name: "BAP-HABS-WORKPACKAGE1"
@@ -324,13 +278,6 @@ targets:
             - service_principal_name: ${var.job_runas_account}
               level: CAN_MANAGE
 
-        clean_schema:
-          permissions:
-            - group_name: ${var.support_ad_group}
-              level: CAN_MANAGE
-            - service_principal_name: ${var.job_runas_account}
-              level: CAN_MANAGE
-
   stg:
     resources:
       jobs:
@@ -349,13 +296,6 @@ targets:
               level: CAN_MANAGE
             - group_name: ${var.dm_ad_group}
               level: CAN_MANAGE_RUN
-            - service_principal_name: ${var.job_runas_account}
-              level: CAN_MANAGE
-
-        clean_schema:
-          permissions:
-            - group_name: ${var.support_ad_group}
-              level: CAN_MANAGE          
             - service_principal_name: ${var.job_runas_account}
               level: CAN_MANAGE
 
@@ -380,12 +320,5 @@ targets:
               level: CAN_MANAGE
             - group_name: ${var.dm_ad_group}
               level: CAN_MANAGE_RUN
-            - service_principal_name: ${var.job_runas_account}
-              level: CAN_MANAGE
-
-        clean_schema:
-          permissions:
-            - group_name: ${var.support_ad_group}
-              level: CAN_MANAGE
             - service_principal_name: ${var.job_runas_account}
               level: CAN_MANAGE

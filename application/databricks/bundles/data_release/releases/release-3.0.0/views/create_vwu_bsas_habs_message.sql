@@ -1,0 +1,27 @@
+create or replace view bsas_db.vwu_bsas_habs_message  
+as  
+select     
+	artifact_type.art_type_en_name,
+	artifact_type.art_type_fr_name,
+	archived_artifact.srce_sys_id,   
+    archived_artifact.art_type_id,
+	archived_artifact.batch_id_process_file,   
+    archived_artifact.srce_sys_creation_date as created,
+	archived_artifact.purge_forward_date,   
+    archived_artifact.purge_hold_flag,
+	archived_artifact.audit_creation_user,   
+    archived_artifact.audit_creation_date,
+	archived_artifact.audit_last_update_user,   
+    archived_artifact.audit_last_update_date,
+	archived_artifact.keyw4_boc_doc_title as title,   
+    archived_artifact.keyw5_boc_doc_creator as creator,
+	archived_artifact.keyw1_srce_tran_id as message_key,   
+    archived_artifact.keyw7_value as business_transaction_id  
+from
+	bsas_db.tbl_artifact_type artifact_type inner join bsas_db.tbl_archived_artifact archived_artifact 
+		on artifact_type.art_type_id = archived_artifact.art_type_id
+		and artifact_type.srce_sys_id = archived_artifact.srce_sys_id  
+where     
+	(
+		upper(archived_artifact.art_type_id) in (upper('habs311r'), upper('habs312r'))
+	)

@@ -1,0 +1,15 @@
+# Runtime config for the swift-file-upload app (same in dev, stg and prd).
+# Kept in source so every deployment gets it; the bundle deploy engine does not
+# always generate this file. Environment, volume and catalog are worked out by
+# app.py from the workspace; the job is found by name (BAP-DVR-SWIFT).
+# SPN_* come from the app's secret resources defined in databricks.yml.
+command:
+  - python
+  - app.py
+env:
+  - name: SPN_TENANTID
+    valueFrom: spn-tenantid
+  - name: SPN_ID
+    valueFrom: spn-id
+  - name: SPN_SECRET
+    valueFrom: spn-secret

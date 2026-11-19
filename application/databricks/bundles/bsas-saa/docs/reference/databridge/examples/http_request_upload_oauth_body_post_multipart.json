@@ -1,0 +1,49 @@
+{
+  "id": "upload_multipart_oauth2",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "oauth2_client_credentials",
+        "token_url": "https://auth.vendor.example.com/token",
+        "client_id": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-id\") }}",
+        "client_secret": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-secret\") }}",
+        "client_auth_method": "body",
+        "scope": "reports.write"
+      }
+    },
+    "requests": [
+      {
+        "id": "upload_report",
+        "method": "POST",
+        "path": "uploads",
+        "body": {
+          "type": "multipart",
+          "fields": {
+            "reportDate": "{{ runtime.rundate }}"
+          },
+          "files": [
+            {
+              "name": "file",
+              "path": "prepared/report.csv",
+              "filename": "report.csv",
+              "content_type": "text/csv"
+            }
+          ]
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201
+          ],
+          "save_to": "receipts/multipart-oauth2.json"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "file-validate-basic",
+  "handler": "oedis.handler.file.validate",
+  "params": {
+    "requests": [
+      {
+        "src_dir": "raw",
+        "include": [
+          "*.csv"
+        ],
+        "exclude": [
+          "*.tmp"
+        ],
+        "recursive": false,
+        "rules": [
+          {
+            "name": "count",
+            "min": 2
+          },
+          {
+            "name": "size",
+            "min": 1
+          }
+        ]
+      }
+    ]
+  }
+}

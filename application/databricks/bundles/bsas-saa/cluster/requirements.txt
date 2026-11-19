@@ -1,0 +1,20 @@
+# In-house dependencies
+oeds-common~=2.0
+
+# oeds-common requires databricks-sdk>=0.80.0, upgrading Runtime 16.4's bundled SDK.
+# Allow protobuf>=4.25.8 for compatibility with newer SDK releases.
+# Runtime 16.4's bundled MLflow and Google packages require protobuf<6.
+# Stay on protobuf 4.x to avoid protobuf compatibility issues with MLflow and Google packages.
+protobuf>=4.25.8,<5
+
+# Third-party dependencies imported directly by Dataforge
+pandas>=1.5.3
+databricks-sdk>=0.80.0
+pydantic>=2.0.0
+jinja2>=3.1.0
+jmespath>=1.0.1
+requests>=2.31.0
+pyyaml>=6.0
+sqlglot>=20.0.0
+sqlfluff>=3.0.0
+certifi>=2026.6.17

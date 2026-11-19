@@ -9,11 +9,12 @@ and manually triggers the reconciliation.
 ## Components
 
 ### Databricks App: `swift-file-upload`
-- Dash web app for ARM team to upload DVR Excel files to the landing volume
-- Source: `src/swift-file-upload/`
+- Dash web app for ARM team to upload DVR Excel files to the landing zone
+  (`${var.catalog}.reference_db.vol_bap_land/dvr`). The app never writes to raw.
+- Source: `src/swift_file_upload/`
 - App URL: `https://swift-file-upload-1700301391505163.3.azure.databricksapps.com`
 
-### Pipeline Notebooks: `src/dvr-pipeline/`
+### Pipeline Notebooks: `src/dvr_pipeline/`
 | Notebook | Description |
 |---|---|
 | `01_validate_swift_files` | Validates filename, worksheet, dates, required fields |
@@ -23,11 +24,18 @@ and manually triggers the reconciliation.
 | `05_notify` | Email notifications (4 outcome scenarios) |
 
 ### Jobs (defined in `resources/jobs.yml`)
-- **DVR Swift Pipeline** — started by the Swift File Upload app after ARM uploads a file (no schedule): validate → parse → HABS → reconcile → reports → notify
+- **BAP-DVR-SWIFT** — started by the Swift File Upload app after ARM uploads a file (no schedule): land to raw (R: drive copy) → validate → parse → HABS → reconcile → reports → notify
 
-The Swift job now passes validation and reconciliation results between tasks,
-copies validated files to the configured legacy R: drive, and writes retained
-CSV and HTML reports under the configured reports volume.
+Flow: app upload → landing zone → raw zone → curated → views. The first task,
+`land_to_raw` (`02b_copy_legacy_r_drive`), copies every landed file (valid or
+not) from the landing zone to the configured legacy R: drive through DataBridge,
+then moves it to the raw inbox, where validation picks it up. DataBridge reads
+from the landing zone, so `lake-{env}-oedisint` needs access to `vol_bap_land`
+only. If the R: drive copy fails, the files are still moved to raw and
+processed, and the task fails so notify alerts support. The job passes validation and
+reconciliation results between tasks. Validation errors are written to
+`standardized_db.tbl_dvr_validation_error_log` and report rows to
+`curated_db.tbl_dvr_recon_report`; no log or report folders are kept in the raw volume.
 
 The DVR first release reads HABS data from the existing BAP raw table populated through the
 environment-specific HABS foreign catalog. Direct Oracle connectivity and SMM
@@ -50,16 +58,20 @@ The independent DVR release is `release-2.0.0`, defined under
 separate release are outside this bundle's release scope.
 
 ### Target Tables
-#### Derived tables (`${var.catalog}.derived_db`)
-> In dev: `dev_banking_and_payments_cat.derived_db`
+#### Curated tables (`${var.catalog}.curated_db`)
+> In dev: `dev_banking_and_payments_cat.curated_db`
 - `tbl_swift_message_fact` — parsed SWIFT DVR file data
-- `tbl_swift_habs_recon_results_fact` — reconciliation results
-- `tbl_dvr_file_processing_log` — file lifecycle audit trail
-
-#### Curated/reference tables (`${var.catalog}.curated_db`)
-> HABS and shared reference data remain in `dev_banking_and_payments_cat.curated_db` in dev.
 - `tbl_habs_message_fact` — transformed HABS data for reconciliation
+- `tbl_swift_habs_recon_results_fact` — reconciliation results
+- `tbl_dvr_recon_report` — per-run reconciliation report rows
 - `tbl_swift_message_status_dim` — message status dimension
+
+#### Log tables (`${var.catalog}.standardized_db`)
+- `tbl_dvr_file_processing_log` — file lifecycle audit trail
+- `tbl_dvr_validation_error_log` — validation errors per uploaded file
+
+The raw volume (`vol_internal_swift`) keeps only the source files: `inbox`,
+`archive` and `rejected`.
 
 ## Pre-Go-Live Checklist
 

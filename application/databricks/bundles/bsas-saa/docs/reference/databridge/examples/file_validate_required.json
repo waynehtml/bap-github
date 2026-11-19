@@ -1,0 +1,15 @@
+{
+  "id": "validate_download",
+  "handler": "oedis.handler.file.validate",
+  "optional": false,
+  "params": {
+    "requests": [
+      {
+        "src_dir": "downloaded",
+        "include": ["*.csv"],
+        "recursive": false,
+        "rules": [{"name": "count", "min": 1}]
+      }
+    ]
+  }
+}

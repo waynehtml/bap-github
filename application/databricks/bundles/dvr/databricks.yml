@@ -448,11 +448,10 @@ variables:
   habs_source_table:
     description: Existing HABS source table used by the DVR pipeline.
     default: "${var.catalog}.raw_db.habs_habs_message"
-  # SWIFT upload volume (inbox/archive/rejected/error_logs/reports) for this environment.
+  # SWIFT upload volume (inbox/archive/rejected) for this environment. Validation
+  # error logs and reconciliation reports are tables in curated_db, not folders here.
   swift_volume_root:
     default: "${var.raw_root}"
-  reports_root:
-    default: "${var.raw_root}/reports"
   legacy_r_drive_path:
     description: Environment-specific UNC path for the Swift DVR legacy transfer.
     default: "\\\\svmip-fsaas-01.bocad.bank-banque-canada.ca\\home\\asd\\datastg\\secured\\FCRMS\\SWIFTDVR_dev"
@@ -462,7 +461,7 @@ resources:
     swift-file-upload:
       name: swift-file-upload
       description: "Swift DVR file upload for the ARM team"
-      source_code_path: ./src/swift-file-upload
+      source_code_path: ./src/swift_file_upload
       # The app signs in as the shared app account lake-{env}-oedataservices-app.
       # Its volume access is granted in UC (Data Management); its job access is
       # set in job_permissions. These bindings expose its credentials to the app.
@@ -482,23 +481,9 @@ resources:
             scope: "${var.app_secrete_scope}"
             key: "${var.app_spn_secret_key}"
             permission: READ
-      config:
-        command: ["python", "app.py"]
-        env:
-          - name: ENV_NAME
-            value: "${bundle.target}"
-          - name: VOLUME_PATH
-            value: "${var.swift_volume_root}"
-          - name: BAP_CATALOG
-            value: "${var.catalog}"
-          - name: DVR_PIPELINE_JOB_ID
-            value: "${resources.jobs.dvr_swift_pipeline.id}"
-          - name: SPN_TENANTID
-            valueFrom: spn-tenantid
-          - name: SPN_ID
-            valueFrom: spn-id
-          - name: SPN_SECRET
-            valueFrom: spn-secret
+      # Runtime command and env are in src/swift_file_upload/app.yml (in source,
+      # so every deployment gets them). app.py works out the environment,
+      # volume and catalog from the workspace and finds the job by name.
 
 targets:
   dev:
@@ -522,9 +507,6 @@ targets:
         # lake-dev-oedataservices-app: the upload app starts and monitors runs
         - service_principal_name: "9162e15e-33a4-4195-92f6-1442d1038967"
           level: CAN_MANAGE_RUN
-        # Sadia (developer): full access in dev
-        - user_name: "isls@bocqa.bank-banque-canada.ca"
-          level: CAN_MANAGE
         # ARM: view runs and errors when the pipeline fails
         - group_name: "lake_armrestricted_rusr_inda"
           level: CAN_VIEW
@@ -562,12 +544,6 @@ targets:
             # lake-bap01-devops-qa: DEV dbk-dab-deploy identity; keeps deploy access.
             - service_principal_name: "5569c96a-9bbf-423f-bed8-ff7e7dae61d3"
               level: CAN_MANAGE
-            - user_name: "maxh@bocqa.bank-banque-canada.ca"  # Ally Ma
-              level: CAN_MANAGE
-            - user_name: "isls@bocqa.bank-banque-canada.ca"  # Sadia Islam
-              level: CAN_MANAGE
-            - user_name: "nevj@bocqa.bank-banque-canada.ca"  # Julian Neves Leite
-              level: CAN_USE
 
   stg:
     mode: production

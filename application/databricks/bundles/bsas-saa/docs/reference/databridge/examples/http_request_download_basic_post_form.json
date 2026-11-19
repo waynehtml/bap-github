@@ -1,0 +1,40 @@
+{
+  "id": "http_request_basic_form",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "basic",
+        "username": "{{ keyvault(scope=\"dis-secrets\", key=\"http-user\") }}",
+        "password": "{{ keyvault(scope=\"dis-secrets\", key=\"http-password\") }}"
+      }
+    },
+    "requests": [
+      {
+        "id": "request_report",
+        "method": "POST",
+        "path": "reports/export",
+        "headers": {
+          "Accept": "text/csv"
+        },
+        "body": {
+          "type": "form",
+          "value": {
+            "reportDate": "{{ runtime.rundate }}",
+            "format": "csv",
+            "includeHeader": true
+          }
+        },
+        "response": {
+          "expected_status": 200,
+          "save_to": "raw/basic-report.csv"
+        }
+      }
+    ]
+  }
+}

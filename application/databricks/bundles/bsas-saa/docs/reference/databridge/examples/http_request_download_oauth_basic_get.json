@@ -1,0 +1,37 @@
+{
+  "id": "http_request_oauth_basic",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 60,
+      "auth": {
+        "type": "oauth2_client_credentials",
+        "token_url": "https://auth.vendor.example.com/token",
+        "client_id": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-id\") }}",
+        "client_secret": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-secret\") }}",
+        "client_auth_method": "basic",
+        "scope": "reports.read",
+        "token_params": {
+          "audience": "https://api.vendor.example.com"
+        },
+        "token_headers": {
+          "Accept": "application/json"
+        },
+        "access_token_field": "access_token",
+        "expires_in_field": "expires_in"
+      }
+    },
+    "requests": [
+      {
+        "path": "reports/daily",
+        "response": {
+          "expected_status": [
+            200
+          ],
+          "save_to": "raw/oauth-report.csv"
+        }
+      }
+    ]
+  }
+}

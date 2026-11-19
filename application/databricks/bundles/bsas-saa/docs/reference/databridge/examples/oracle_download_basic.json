@@ -1,0 +1,44 @@
+{
+  "id": "oracle_download",
+  "handler": "oedis.handler.oracle.download",
+  "params": {
+    "connection": {
+      "host": "oracle.data.example.com",
+      "port": 1521,
+      "service_name": "FINPDB",
+      "auth": {
+        "username": "svc_reader",
+        "password": "{{keyvault(scope=dis-secrets, key=oracle-password)}}"
+      }
+    },
+    "requests": [
+      {
+        "id": "daily_rates_csv",
+        "select_sql": "SELECT business_date, rate FROM daily_rates WHERE business_date = :business_date",
+        "parameters": {
+          "business_date": "{{ runtime.rundate }}"
+        },
+        "format": "csv",
+        "file": "exports/daily_rates.csv",
+        "write": {
+          "options": {
+            "sep": "|",
+            "encoding": "utf-8",
+            "na_rep": ""
+          }
+        }
+      },
+      {
+        "id": "customers_parquet",
+        "table": "CUSTOMER_OWNER.CUSTOMERS",
+        "format": "parquet",
+        "file": "exports/customers.parquet",
+        "write": {
+          "options": {
+            "compression": "snappy"
+          }
+        }
+      }
+    ]
+  }
+}

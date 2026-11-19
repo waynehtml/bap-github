@@ -1,0 +1,47 @@
+{
+  "id": "http_request_download_oauth_json_post",
+  "handler": "oedis.handler.http.request",
+  "params": {
+    "connection": {
+      "base_url": "https://api.vendor.example.com/v1",
+      "timeout_sec": 120,
+      "auth": {
+        "type": "oauth2_client_credentials",
+        "token_url": "https://auth.vendor.example.com/token",
+        "client_id": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-id\") }}",
+        "client_secret": "{{ keyvault(scope=\"dis-secrets\", key=\"http-client-secret\") }}",
+        "client_auth_method": "body",
+        "scope": "reports.read",
+        "token_headers": {
+          "Accept": "application/json"
+        }
+      }
+    },
+    "requests": [
+      {
+        "id": "export_csv",
+        "method": "POST",
+        "path": "reports/export",
+        "headers": {
+          "Accept": "text/csv"
+        },
+        "body": {
+          "type": "json",
+          "value": {
+            "reportDate": "{{ runtime.rundate }}",
+            "format": "csv",
+            "columns": [
+              "id",
+              "amount",
+              "currency"
+            ]
+          }
+        },
+        "response": {
+          "expected_status": 200,
+          "save_to": "raw/oauth-export_{{ runtime.rundate }}.csv"
+        }
+      }
+    ]
+  }
+}

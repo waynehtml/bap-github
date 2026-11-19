@@ -1,0 +1,60 @@
+{
+  "id": "upload_report",
+  "handler": "oedis.handler.rest.upload",
+  "params": {
+    "connection": {
+      "timeout_sec": 60,
+      "headers": {
+        "Accept": "application/json"
+      },
+      "auth": {
+        "type": "bearer",
+        "token": "{{ keyvault(scope=\"dis-secrets\", key=\"token_value\") }}"
+      },
+      "fault_tolerant": {
+        "retries": 3,
+        "retry_interval_sec": 30,
+        "retry_on_status": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ]
+      }
+    },
+    "requests": [
+      {
+        "id": "send_report",
+        "method": "POST",
+        "url": "https://example/api/upload",
+        "params": {
+          "date": "{{ rundate }}"
+        },
+        "body": {
+          "type": "multipart",
+          "fields": {
+            "reportDate": "{{ rundate }}",
+            "source": "databridge"
+          },
+          "files": [
+            {
+              "name": "file",
+              "path": "prepared/report_{{ rundate }}.csv",
+              "filename": "report_{{ rundate }}.csv",
+              "content_type": "text/csv"
+            }
+          ]
+        },
+        "response": {
+          "expected_status": [
+            200,
+            201,
+            202,
+            204
+          ]
+        }
+      }
+    ]
+  }
+}
