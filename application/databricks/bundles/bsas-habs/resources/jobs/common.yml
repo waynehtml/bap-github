@@ -205,6 +205,7 @@ variables:
       # Runtime settings
       env: ${bundle.target}
       bundle_root: ${var.bundle_root}
+      shared_library_root: ${var.shared_library_root}
       dbk_runtime_version: "${var.compute_classic_runtime_version}"
       job_name: "{{job.name}}"
       job_id: "{{job.id}}"
